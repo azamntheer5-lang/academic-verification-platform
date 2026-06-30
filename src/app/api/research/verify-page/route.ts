@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyPageNumber } from '@/lib/verify'
 import type { PageVerifyResult as LibPageVerifyResult } from '@/lib/verify'
+import { findCitationOnWeb } from '@/lib/library'
 
 // POST multipart/form-data with fields:
 //   file: File (pdf or docx)          — required
 //   quote: string                      — the verbatim citation quote
 //   claimedPage: number | null         — the page the researcher claims
+//   author: string                     — the claimed author (for the fallback)
 //
 // The actual PDF/DOCX parsing happens in a dedicated mini-service on port
 // 3004 (mini-services/doc-extract). We forward the raw file bytes there and
 // get back per-page text. The page-level matching then runs locally in this
-// route using src/lib/verify.ts.
+// route using src/lib/verify.ts. If the quote is NOT found in the file, we
+// automatically run the autonomous web fallback (findCitationOnWeb).
 
 interface ExtractedPage {
   number: number
@@ -30,6 +33,7 @@ export async function POST(req: NextRequest) {
       claimedPageRaw === null || claimedPageRaw === '' || claimedPageRaw === 'null'
         ? null
         : parseInt(String(claimedPageRaw), 10)
+    const author = String(form.get('author') || '').trim()
 
     const file = form.get('file')
     if (!file || !(file instanceof File)) {
@@ -92,6 +96,18 @@ export async function POST(req: NextRequest) {
 
     const pages = extractJson.pages
     const result: LibPageVerifyResult = verifyPageNumber({ quote, claimedPage, pages })
+
+    // ── Autonomous web fallback ─────────────────────────────────────────────
+    // When the quote was not located in the uploaded file, the system "flies"
+    // the quote + author to global libraries and returns a verified citation.
+    if (result.status === 'not_found' && author) {
+      try {
+        const fallback = await findCitationOnWeb(quote, author)
+        result.fallback = fallback
+      } catch {
+        result.fallback = null
+      }
+    }
 
     return NextResponse.json({
       ok: true,

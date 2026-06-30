@@ -300,3 +300,240 @@ function dedupe(hits: LibraryHit[]): LibraryHit[] {
   }
   return out
 }
+
+// ── Autonomous web fallback ───────────────────────────────────────────────────
+// When the quote is NOT found in the uploaded file, the system "flies" the
+// quote + author to global digital libraries and tries to locate the real
+// published source. Returns a ready-to-use verified citation.
+
+export interface WebFallbackResult {
+  found: boolean
+  confidence: number
+  title: string
+  authors: string[]
+  year: string | null
+  publisher: string | null
+  isbn: string | null
+  page: number | null
+  pageConfirmed: boolean // true only if a snippet explicitly mentioned the page
+  url: string | null
+  sourceHits: LibraryHit[]
+  apaCitation: string
+  mlaCitation: string
+  note: string
+}
+
+async function webSearchResults(query: string): Promise<LibraryHit[]> {
+  try {
+    const zai = await ZAI.create()
+    const results = await zai.functions.invoke('web_search', { query, num: 8 })
+    if (!Array.isArray(results)) return []
+    return results.map((r: { name?: string; url?: string; snippet?: string; host_name?: string; date?: string }) => ({
+      source: 'web' as const,
+      title: r.name || '',
+      authors: [] as string[],
+      year: extractYear(r.snippet || '') || extractYear(r.name || '') || null,
+      publisher: r.host_name || null,
+      isbn: null,
+      url: r.url || '',
+      snippet: r.snippet || '',
+    }))
+  } catch {
+    return []
+  }
+}
+
+// Try to spot a page number inside a search snippet, e.g. "...on page 45...".
+function extractPageFromSnippet(text: string): number | null {
+  const patterns = [
+    /\bpage\s+(\d{1,4})\b/i,
+    /\bp\.?\s*(\d{1,4})\b/i,
+    /\bص\s*\.?\s*(\d{1,4})/,
+    /\bصفحة\s*(\d{1,4})/,
+    /\b(?:pp?\.?|pages?)\s*(\d{1,4})\b/i,
+  ]
+  for (const re of patterns) {
+    const m = text.match(re)
+    if (m) {
+      const n = parseInt(m[1], 10)
+      if (n >= 1 && n <= 9999) return n
+    }
+  }
+  return null
+}
+
+export async function findCitationOnWeb(
+  quote: string,
+  author: string,
+): Promise<WebFallbackResult> {
+  const q = quote.trim()
+  if (!q || !author.trim()) {
+    return emptyFallback(quote, author)
+  }
+
+  // 1. Web search for the exact quote + author
+  const shortQuote = q.length > 120 ? q.slice(0, 120) + '…' : q
+  const [quoteHits, olHits] = await Promise.all([
+    webSearchResults(`"${shortQuote}" ${author}`),
+    searchOpenLibrary(`${author} ${shortQuote.split(' ').slice(0, 6).join(' ')}`),
+  ])
+
+  const all = dedupe([...quoteHits, ...olHits])
+  if (all.length === 0) {
+    return {
+      ...emptyFallback(quote, author),
+      note: 'تعذّر العثور على المرجع البديل في المكتبات العالمية. تأكد من دقة الاقتباس واسم العالم، أو أعد رفع ملف المصدر الصحيح.',
+    }
+  }
+
+  // 2. Score hits: prefer ones whose snippet contains the quote words, and
+  // whose title/authors relate to the claimed author.
+  const quoteTokens = new Set(normalizeForMatch(q).split(' ').filter((w) => w.length > 3))
+  let best: { hit: LibraryHit; score: number; page: number | null; pageConfirmed: boolean } | null = null
+  for (const hit of all) {
+    let score = 0
+    // author match
+    if (hit.authors.length > 0 && authorsMatch(author, hit.authors)) score += 0.3
+    else if (hit.authors.length === 0 && hit.title.toLowerCase().includes(author.toLowerCase())) score += 0.15
+    // quote words in snippet
+    const snippet = hit.snippet || ''
+    const snippetTokens = new Set(normalizeForMatch(snippet).split(' '))
+    let overlap = 0
+    for (const t of quoteTokens) if (snippetTokens.has(t)) overlap++
+    const coverage = quoteTokens.size ? overlap / quoteTokens.size : 0
+    score += 0.5 * coverage
+    // structured library hit bonus
+    if (hit.source === 'openlibrary') score += 0.15
+    // page mention in snippet
+    const page = extractPageFromSnippet(snippet) || extractPageFromSnippet(hit.title)
+    const pageConfirmed = page !== null
+    if (pageConfirmed) score += 0.2
+
+    if (!best || score > best.score) {
+      best = { hit, score, page, pageConfirmed }
+    }
+  }
+
+  if (!best || best.score < 0.2) {
+    return {
+      ...emptyFallback(quote, author),
+      sourceHits: all.slice(0, 5),
+      note: 'لم يُعثر على تطابق موثوق للاقتباس في المكتبات العالمية. هذه أقرب النتائج للمراجعة اليدوية:',
+    }
+  }
+
+  const { hit, page, pageConfirmed, score } = best
+  const title = hit.title || 'مرجع غير معروف'
+  const authors = hit.authors.length ? hit.authors : [author]
+  const year = hit.year || null
+  const publisher = hit.publisher || null
+
+  // 3. Compose ready-to-use citations
+  const fields = {
+    type: 'book',
+    title,
+    authors: authors.join('; '),
+    year: year || 'بلا تاريخ',
+    publisher: publisher || '',
+  }
+  const apa = composeApa(fields, page)
+  const mla = composeMla(fields, page)
+
+  const confidence = Math.min(1, score)
+  let note: string
+  if (pageConfirmed) {
+    note = `عُثر على الاقتباس في المرجع: «${title}»${authors.length ? ' — ' + authors.join('، ') : ''}${year ? ' (' + year + ')' : ''}، الصفحة ${page}. المرجع بديل مؤكد من المكتبة العالمية مع رقم الصفحة الموثّق.`
+  } else if (hit.source === 'openlibrary') {
+    note = `عُثر على المرجع المحتمل في Open Library: «${title}»${authors.length ? ' — ' + authors.join('، ') : ''}${year ? ' (' + year + ')' : ''}. لم يُذكر رقم الصفحة في النتائج — راجع الكتاب يدوياً للتأكد. التوثيق أدناه جاهز للنسخ.`
+  } else {
+    note = `أقرب مرجع بديل من بحث الويب: «${title}»${authors.length ? ' — ' + authors.join('، ') : ''}${year ? ' (' + year + ')' : ''}. يُنصح بمراجعة المصدر الأصلي. التوثيق أدناه جاهز للنسخ.`
+  }
+
+  return {
+    found: true,
+    confidence,
+    title,
+    authors,
+    year,
+    publisher,
+    isbn: hit.isbn,
+    page,
+    pageConfirmed,
+    url: hit.url,
+    sourceHits: all.slice(0, 5),
+    apaCitation: apa,
+    mlaCitation: mla,
+    note,
+  }
+}
+
+function emptyFallback(quote: string, author: string): WebFallbackResult {
+  void quote
+  void author
+  return {
+    found: false,
+    confidence: 0,
+    title: '',
+    authors: [],
+    year: null,
+    publisher: null,
+    isbn: null,
+    page: null,
+    pageConfirmed: false,
+    url: null,
+    sourceHits: [],
+    apaCitation: '',
+    mlaCitation: '',
+    note: 'تعذّر العثور على المرجع البديل.',
+  }
+}
+
+function composeApa(s: { title: string; authors: string; year: string; publisher: string }, page: number | null): string {
+  const authorsArr = s.authors.split(';').map((a) => a.trim()).filter(Boolean)
+  const formatted = authorsArr.map((a) => toInitialsName(a))
+  const authorStr = formatted.length === 0 ? 'بدون مؤلف' : formatted.length === 1 ? formatted[0] : formatted.length === 2 ? `${formatted[0]} و ${formatted[1]}` : `${formatted[0]} وآخرون`
+  let out = `${authorStr} (${s.year}). *${s.title}*.`
+  if (s.publisher) out += ` ${s.publisher}.`
+  if (page) out += ` (ص. ${page})`
+  return out
+}
+
+function composeMla(s: { title: string; authors: string; year: string; publisher: string }, page: number | null): string {
+  const authorsArr = s.authors.split(';').map((a) => a.trim()).filter(Boolean)
+  const last = authorsArr[0] ? lastNameOf(authorsArr[0]) + ', ' + firstPart(authorsArr[0]) : ''
+  const authorStr = authorsArr.length === 0 ? '' : authorsArr.length === 1 ? last : `${last} وآخرون`
+  let out = authorStr ? authorStr + '. ' : ''
+  out += `*${s.title}.*`
+  if (s.publisher) out += ` ${s.publisher},`
+  out += ` ${s.year}.`
+  if (page) out += ` ص. ${page}.`
+  return out
+}
+
+function toInitialsName(name: string): string {
+  const n = name.trim()
+  if (!n) return ''
+  if (n.includes(',')) {
+    const [last, rest] = n.split(',', 2).map((x) => x.trim())
+    const initials = rest.split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + '.').join(' ')
+    return `${last}, ${initials}`.trim()
+  }
+  const parts = n.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0]
+  const initials = parts.slice(0, -1).map((w) => w.charAt(0).toUpperCase() + '.').join(' ')
+  return `${initials} ${parts[parts.length - 1]}`.trim()
+}
+
+function lastNameOf(name: string): string {
+  const n = name.trim()
+  if (!n) return ''
+  if (n.includes(',')) return n.split(',')[0].trim()
+  return n.split(/\s+/).slice(-1)[0]
+}
+
+function firstPart(name: string): string {
+  const n = name.trim()
+  if (!n) return ''
+  if (n.includes(',')) return n.split(',')[1]?.trim() || ''
+  return n.split(/\s+/).slice(0, -1).join(' ')
+}

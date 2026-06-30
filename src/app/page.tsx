@@ -148,6 +148,8 @@ export default function Home() {
       toast.error('أدخل النص المقتبس أولاً (اضغط «تعديل» بجانب الاقتباس).')
       return
     }
+    const row = rows.find((r) => r.id === id)
+    const author = row?.author || ''
     setRows((rs) =>
       rs.map((r) => (r.id === id ? { ...r, pageVerifying: true } : r)),
     )
@@ -156,6 +158,7 @@ export default function Home() {
       form.append('file', file)
       form.append('quote', quote)
       form.append('claimedPage', claimedPage === null ? '' : String(claimedPage))
+      form.append('author', author)
       const res = await fetch('/api/research/verify-page', { method: 'POST', body: form })
       const data = await res.json()
       if (!data.ok) {

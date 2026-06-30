@@ -19,6 +19,10 @@ import {
   MapPin,
   X,
   Edit3,
+  Globe,
+  ShieldCheck,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { StatusBadge, VerifyingBadge } from './status-badge'
 import type { CitationRow, LibraryHit, PageVerifyResult } from '@/lib/types'
@@ -235,7 +239,15 @@ export function CitationCard({
 
         {/* Page verification result */}
         {row.pageVerify && row.pageVerify.status !== 'pending' && (
-          <PageVerifySection pv={row.pageVerify} fileName={fileName} />
+          <>
+            <PageVerifySection pv={row.pageVerify} fileName={fileName} />
+            {row.pageVerify.fallback && row.pageVerify.fallback.found && (
+              <FallbackSection fb={row.pageVerify.fallback} />
+            )}
+            {row.pageVerify.fallback && !row.pageVerify.fallback.found && row.pageVerify.fallback.sourceHits.length > 0 && (
+              <FallbackSection fb={row.pageVerify.fallback} />
+            )}
+          </>
         )}
 
         {/* Upload zone + action buttons */}
@@ -356,8 +368,13 @@ function PageVerifySection({ pv, fileName }: { pv: PageVerifyResult; fileName?: 
             </Badge>
           )}
           <Badge variant="outline" className="bg-white/60">
-            الصفحة الفعلية: {pv.matchedPage}
+            الصفحة داخل الملف: {pv.matchedPage}
           </Badge>
+          {pv.realPage !== null && pv.realPage !== pv.matchedPage && (
+            <Badge className="bg-emerald-200 text-emerald-900 border-emerald-300">
+              الصفحة المطبوعة في الكتاب: {pv.realPage}
+            </Badge>
+          )}
           <Badge variant="outline" className="bg-white/60">
             نسبة التطابق: {Math.round(pv.matchScore * 100)}%
           </Badge>
@@ -386,6 +403,127 @@ function PageVerifySection({ pv, fileName }: { pv: PageVerifyResult; fileName?: 
           </div>
         </details>
       )}
+    </div>
+  )
+}
+
+function FallbackSection({ fb }: { fb: NonNullable<PageVerifyResult['fallback']> }) {
+  const [copied, setCopied] = useState<'apa' | 'mla' | null>(null)
+  const copy = (text: string, which: 'apa' | 'mla') => {
+    if (!text) return
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(which)
+      setTimeout(() => setCopied(null), 1800)
+    })
+  }
+  return (
+    <div className="rounded-md border-2 border-violet-300 bg-violet-50/60 px-3 py-3 space-y-3">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm font-bold text-violet-900 flex items-center gap-1.5">
+          <Globe className="h-4 w-4" />
+          المرجع البديل من المكتبة العالمية
+        </p>
+        {fb.found && (
+          <Badge className="bg-violet-200 text-violet-900 border-violet-300 gap-1">
+            <ShieldCheck className="h-3 w-3" />
+            {fb.pageConfirmed ? 'مؤكد بالصفحة' : 'مرجع مقترح'} · {Math.round(fb.confidence * 100)}%
+          </Badge>
+        )}
+      </div>
+      <p className="text-sm text-violet-900 leading-relaxed bg-white/60 border border-violet-200 rounded px-2 py-1.5">
+        {fb.note}
+      </p>
+
+      {fb.found && (
+        <>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <FBMeta label="العنوان" value={fb.title} />
+            <FBMeta label="المؤلف" value={fb.authors.join('، ')} />
+            <FBMeta label="السنة" value={fb.year || '—'} />
+            <FBMeta label="الناشر" value={fb.publisher || '—'} />
+            {fb.page !== null && <FBMeta label="الصفحة" value={String(fb.page)} />}
+            {fb.isbn && <FBMeta label="ISBN" value={fb.isbn} />}
+          </div>
+
+          {fb.url && (
+            <a
+              href={fb.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-violet-700 hover:text-violet-900 underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              فتح المصدر: {fb.url.slice(0, 50)}…
+            </a>
+          )}
+
+          {fb.apaCitation && (
+            <div className="rounded-md bg-white border border-violet-200 px-3 py-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-violet-800">توثيق APA (جاهز للنسخ)</span>
+                <button
+                  onClick={() => copy(fb.apaCitation, 'apa')}
+                  className="text-xs px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 text-violet-800 flex items-center gap-1"
+                >
+                  {copied === 'apa' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied === 'apa' ? 'نُسخ' : 'نسخ'}
+                </button>
+              </div>
+              <p className="text-sm text-slate-800 leading-relaxed font-[var(--font-amiri)]">{fb.apaCitation}</p>
+            </div>
+          )}
+
+          {fb.mlaCitation && (
+            <div className="rounded-md bg-white border border-violet-200 px-3 py-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-violet-800">توثيق MLA (جاهز للنسخ)</span>
+                <button
+                  onClick={() => copy(fb.mlaCitation, 'mla')}
+                  className="text-xs px-2 py-0.5 rounded bg-violet-100 hover:bg-violet-200 text-violet-800 flex items-center gap-1"
+                >
+                  {copied === 'mla' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  {copied === 'mla' ? 'نُسخ' : 'نسخ'}
+                </button>
+              </div>
+              <p className="text-sm text-slate-800 leading-relaxed font-[var(--font-amiri)]">{fb.mlaCitation}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {fb.sourceHits.length > 0 && (
+        <details className="text-xs" open={!fb.found}>
+          <summary className="cursor-pointer text-violet-700 hover:text-violet-900">
+            مصادر المكتبة ({fb.sourceHits.length})
+          </summary>
+          <div className="space-y-1.5 mt-1.5">
+            {fb.sourceHits.map((h, i) => (
+              <a
+                key={i}
+                href={h.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block rounded border border-violet-200 bg-white/70 px-2 py-1 hover:bg-violet-100"
+              >
+                <p className="font-medium text-slate-800 truncate">{h.title}</p>
+                {h.authors.length > 0 && (
+                  <p className="text-slate-600 truncate">{h.authors.join('، ')}</p>
+                )}
+                {h.snippet && <p className="text-slate-500 line-clamp-2 mt-0.5">{h.snippet}</p>}
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  )
+}
+
+function FBMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-violet-500">{label}</p>
+      <p className="text-slate-800 truncate" title={value}>{value}</p>
     </div>
   )
 }

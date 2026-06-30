@@ -71,12 +71,35 @@ export interface PageVerifyResult {
   confidence: number
   claimedPage: number | null
   matchedPage: number | null
+  realPage: number | null
   matchScore: number
   exactMatch: boolean
   snippet: string
   note: string
   searchedPages: number
   candidates: { page: number; score: number }[]
+  fallback?: WebFallbackResult | null
+  fallbackSearching?: boolean
+}
+
+// Autonomous web fallback: when the quote is NOT found in the uploaded file,
+// the system searches global libraries for the real source and composes a
+// ready-to-use citation.
+export interface WebFallbackResult {
+  found: boolean
+  confidence: number
+  title: string
+  authors: string[]
+  year: string | null
+  publisher: string | null
+  isbn: string | null
+  page: number | null
+  pageConfirmed: boolean
+  url: string | null
+  sourceHits: LibraryHit[]
+  apaCitation: string
+  mlaCitation: string
+  note: string
 }
 
 // A source file uploaded and parsed into pages, kept in-memory per citation

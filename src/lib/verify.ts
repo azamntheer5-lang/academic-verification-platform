@@ -131,7 +131,8 @@ export interface PageVerifyResult {
   status: 'verified' | 'wrong_page' | 'not_found' | 'no_quote'
   confidence: number // 0..1
   claimedPage: number | null
-  matchedPage: number | null // the page where the quote actually appears
+  matchedPage: number | null // physical page index in the file
+  realPage: number | null // the printed page number on that page (from margin), if detectable
   matchScore: number // 0..1
   exactMatch: boolean
   snippet: string // the matching passage from the page
@@ -155,6 +156,7 @@ export function verifyPageNumber(input: PageVerifyInput): PageVerifyResult {
       confidence: 0,
       claimedPage: claimedPage ?? null,
       matchedPage: null,
+      realPage: null,
       matchScore: 0,
       exactMatch: false,
       snippet: '',
@@ -164,10 +166,11 @@ export function verifyPageNumber(input: PageVerifyInput): PageVerifyResult {
     }
   }
 
-  // Strategy A: find pages whose printed page-number (mentioned in text) equals claimedPage
-  let physicalPagesForClaimed: number[] = []
-  if (claimedPage) {
-    physicalPagesForClaimed = findPagesByPrintedNumber(pages, claimedPage)
+  // Build a map from physical page index -> printed page number (from margins)
+  const printedByPhysical = new Map<number, number>()
+  for (const p of pages) {
+    const printed = extractPrintedPageNumber(p.text)
+    if (printed !== null) printedByPhysical.set(p.number, printed)
   }
 
   // Score every page for the quote
@@ -188,84 +191,144 @@ export function verifyPageNumber(input: PageVerifyInput): PageVerifyResult {
       confidence: 0.2,
       claimedPage: claimedPage ?? null,
       matchedPage: null,
+      realPage: null,
       matchScore: top ? top.score : 0,
       exactMatch: false,
       snippet: top ? top.snippet : '',
-      note: `لم يُعثر على الاقتباس في أي من صفحات الملف (${searchedPages} صفحة). تأكد أن الملف هو المصدر الصحيح وأن الاقتباس حرفي.`,
+      note: `لم يُعثر على الاقتباس في أي من صفحات الملف (${searchedPages} صفحة). سيُبحث الآن في المكتبات العالمية عن المرجع البديل.`,
       searchedPages,
       candidates,
     }
   }
 
   const exactMatch = top.exact || top.score >= 0.85
-  const matchedPage = top.page
+  const matchedPhysicalPage = top.page
+  // The "real" page = the number printed in the book's margin on that page,
+  // if detectable. Otherwise fall back to the physical page index.
+  const realPage = printedByPhysical.get(matchedPhysicalPage) ?? matchedPhysicalPage
 
-  // Did the researcher claim a page?
   if (claimedPage) {
-    const claimedMatchesPhysical = physicalPagesForClaimed.includes(matchedPage)
-    const claimedEqualsMatched = claimedPage === matchedPage
+    const claimedEqualsReal = claimedPage === realPage
+    const claimedEqualsPhysical = claimedPage === matchedPhysicalPage
 
-    if (claimedEqualsMatched || claimedMatchesPhysical) {
+    if (claimedEqualsReal || claimedEqualsPhysical) {
       return {
         status: 'verified',
         confidence: Math.min(1, top.score),
         claimedPage,
-        matchedPage,
+        matchedPage: matchedPhysicalPage,
+        realPage,
         matchScore: top.score,
         exactMatch,
         snippet: top.snippet,
-        note: exactMatch
-          ? `الاقتباس موجود حرفياً في الصفحة ${matchedPage} من الملف — مطابق لما ذكرته.`
-          : `الاقتباس موجود في الصفحة ${matchedPage} من الملف مع تطابق قوي (${Math.round(top.score * 100)}%) — مطابق للصفحة المذكورة.`,
+        note:
+          claimedEqualsReal && realPage !== matchedPhysicalPage
+            ? `الاقتباس موجود حرفياً في الصفحة المطبوعة رقم ${realPage} من الكتاب (الصفحة ${matchedPhysicalPage} داخل الملف) — مطابق تماماً لما ذكرته.`
+            : exactMatch
+              ? `الاقتباس موجود حرفياً في الصفحة ${realPage} — مطابق لما ذكرته.`
+              : `الاقتباس موجود في الصفحة ${realPage} مع تطابق قوي (${Math.round(top.score * 100)}%) — مطابق للصفحة المذكورة.`,
         searchedPages,
         candidates,
       }
     }
 
-    // The quote was found, but on a different page
+    // The quote was found, but on a different page → auto-correct
     return {
       status: 'wrong_page',
       confidence: Math.min(1, top.score),
       claimedPage,
-      matchedPage,
+      matchedPage: matchedPhysicalPage,
+      realPage,
       matchScore: top.score,
       exactMatch,
       snippet: top.snippet,
-      note: `الاقتباس موجود فعلاً في الملف، لكن في الصفحة ${matchedPage} لا الصفحة ${claimedPage} التي ذكرتها. الصفحة الصحيحة: ${matchedPage}.`,
+      note:
+        realPage !== matchedPhysicalPage
+          ? `الاقتباس موجود فعلاً في الكتاب، لكن في الصفحة المطبوعة رقم ${realPage} (الصفحة ${matchedPhysicalPage} داخل الملف) لا الصفحة ${claimedPage} التي ذكرتها. الصفحة الصحيحة المعتمدة: ${realPage}.`
+          : `الاقتباس موجود فعلاً في الملف، لكن في الصفحة ${realPage} لا الصفحة ${claimedPage} التي ذكرتها. الصفحة الصحيحة: ${realPage}.`,
       searchedPages,
       candidates,
     }
   }
 
-  // No page claimed by the researcher — just report where it was found
+  // No page claimed by the researcher — report where it was found
   return {
     status: 'verified',
     confidence: Math.min(1, top.score),
     claimedPage: null,
-    matchedPage,
+    matchedPage: matchedPhysicalPage,
+    realPage,
     matchScore: top.score,
     exactMatch,
     snippet: top.snippet,
-    note: exactMatch
-      ? `الاقتباس موجود حرفياً في الصفحة ${matchedPage} من الملف.`
-      : `الاقتباس موجود في الصفحة ${matchedPage} من الملف مع تطابق ${Math.round(top.score * 100)}%.`,
+    note:
+      realPage !== matchedPhysicalPage
+        ? `الاقتباس موجود حرفياً في الصفحة المطبوعة رقم ${realPage} من الكتاب (الصفحة ${matchedPhysicalPage} داخل الملف).`
+        : exactMatch
+          ? `الاقتباس موجود حرفياً في الصفحة ${realPage} من الملف.`
+          : `الاقتباس موجود في الصفحة ${realPage} من الملف مع تطابق ${Math.round(top.score * 100)}%.`,
     searchedPages,
     candidates,
   }
 }
 
-// Find pages that *contain* the printed page number as a token. Crude but
-// works for many academic books that print the page number in a header/footer.
+// Find pages whose *printed* page number (in header/footer margin) equals the
+// target. We only inspect the first 2 and last 2 non-empty lines of each page
+// — that's where books print page numbers. The number must appear as a
+// standalone token (not part of a year like 2016 or a figure like "fig.45").
 function findPagesByPrintedNumber(
   pages: { number: number; text: string }[],
   target: number,
 ): number[] {
   const out: number[] = []
+  const re = new RegExp(`(^|\\s)${target}(\\s|$)`)
   for (const p of pages) {
-    const text = p.text || ''
-    // look for the number as a standalone token (not part of a year/figure)
-    const re = new RegExp(`(^|[^0-9])${target}([^0-9]|$)`)
-    if (re.test(text)) out.push(p.number)
+    const lines = (p.text || '').split('\n').map((l) => l.trim()).filter(Boolean)
+    if (lines.length === 0) continue
+    const margins = [
+      lines[0],
+      lines[1] || '',
+      lines[lines.length - 1],
+      lines[lines.length - 2] || '',
+    ]
+    // A margin line is a page number if it is short (<= 6 chars) and is just
+    // the number, OR it ends/starts with a standalone number.
+    const isMarginPageNumber = margins.some((line) => {
+      if (!line) return false
+      // pure number line (most reliable): "45" or " - 45 - "
+      const pure = line.replace(/[-–—|.()\s]/g, '')
+      if (/^\d+$/.test(pure) && parseInt(pure, 10) === target) return true
+      // line ends with " ... 45" or starts with "45 ... "
+      if (re.test(line) && line.length <= 40) {
+        // exclude years (1000-2099 standing alone) and figure refs
+        if (/^(19|20)\d{2}$/.test(pure)) return false
+        return true
+      }
+      return false
+    })
+    if (isMarginPageNumber) out.push(p.number)
   }
   return out
+}
+
+// Extract the most likely printed page number from a single page's margins.
+// Returns null if no confident number is found.
+export function extractPrintedPageNumber(pageText: string): number | null {
+  const lines = pageText.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (lines.length === 0) return null
+  const margins = [
+    lines[0],
+    lines[1] || '',
+    lines[lines.length - 1],
+    lines[lines.length - 2] || '',
+  ]
+  for (const line of margins) {
+    if (!line) continue
+    const pure = line.replace(/[-–—|.()\s]/g, '')
+    if (/^\d{1,4}$/.test(pure)) {
+      const n = parseInt(pure, 10)
+      if (n >= 1 && n <= 9999 && !/^(19|20)\d{2}$/.test(pure)) return n
+    }
+  }
+  return null
 }

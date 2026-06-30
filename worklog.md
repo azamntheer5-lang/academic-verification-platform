@@ -50,3 +50,30 @@ Stage Summary:
 - النتيجة في الواجهة: شارة حالة الصفحة + قسم تفصيلي (الصفحة المذكورة vs الفعلية، نسبة التطابق، المقطع المطابق، قائمة أفضل الصفحات).
 - ملفات جديدة: mini-services/doc-extract/{package.json,index.ts}, src/app/api/research/verify-page/route.ts, scripts/gen-sample-pdf.ts, scripts/sample-source.pdf, scripts/sample-source.docx.
 - ملفات محدّثة: src/lib/verify.ts (verifyPageNumber), src/lib/types.ts (PageVerifyResult), src/components/citation/citation-card.tsx, src/app/page.tsx.
+
+---
+Task ID: hybrid-system
+Agent: main
+Task: بناء النظام الهجين الكامل: (1) تشريح عميق للملف بكشف رقم الصفحة المطبوع من الهوامش، (2) تصحيح تلقائي لرقم الصفحة، (3) اتصال سحابي بديل تلقائي عند عدم العثور على الاقتباس — يجلب المرجع الصحيح + التوثيق الجاهز APA/MLA.
+
+Work Log:
+- حسّنت findPagesByPrintedNumber في verify.ts: أصبحت تقرأ فقط أول سطرين وآخر سطرين من كل صفحة (الهوامش) وتكتشف الرقم المطبوع كرقم مستقل (تستبعد السنوات).
+- أضفت extractPrintedPageNumber(pageText): تستخرج الرقم المطبوع من هوامش صفحة واحدة.
+- أعدت كتابة verifyPageNumber: تبني خريطة physicalPage→printedPage من الهوامش، تحدد realPage (الرقم المطبوع في الكتاب) منفصلاً عن matchedPage (الفهرس الفعلي داخل الملف)، وتصحح الرقم تلقائياً عند wrong_page.
+- أضفت حقل realPage إلى واجهة PageVerifyResult.
+- بنيت findCitationOnWeb في library.ts: خط الدفاع الثاني. تبحث بالاقتباس بين علامتي اقتباس + اسم المؤلف في بحث الويب + Open Library، تسجّل النتائج، تستخرج رقم الصفحة من المقتطفات (extractPageFromSnippet: page X / p. X / ص X / صفحة X)، تركّب توثيق APA و MLA جاهز للنسخ.
+- أضفت WebFallbackResult type (found, confidence, title, authors, year, publisher, isbn, page, pageConfirmed, url, sourceHits, apaCitation, mlaCitation, note).
+- حدّثت verify-page route: عند status=not_found + وجود author، يستدعي findCitationOnWeb تلقائياً ويرفق النتيجة في result.fallback.
+- حدّثت page.tsx: verifyPage يرسل author في الـ FormData.
+- أضفت FallbackSection في citation-card.tsx: قسم بنفسجي مميز "المرجع البديل من المكتبة العالمية" يعرض العنوان/المؤلف/السنة/الناشر/الصفحة/ISBN/رابط المصدر + صندوقي APA و MLA مع أزرار نسخ + قائمة مصادر المكتبة.
+- حدّثت PageVerifySection لعرض "الصفحة المطبوعة في الكتاب" منفصلة عن "الصفحة داخل الملف".
+- lint نظيف (0 أخطاء).
+- تحققت بـ curl: اقتباس Taleb الحقيقي غير موجود في الـ PDF → fallback وجد الاقتباس في LinkedIn/X بمقتطفات حرفية، confidence 65%.
+- تحققت عبر Agent Browser: رفعت PDF على توثيق "لوديتش" باقتباس خارجي → الأداة أظهرت "لم يُعثر في الملف" ثم تلقائياً قسم "المرجع البديل من المكتبة العالمية — مرجع مقترح 50%" مع توثيق APA و MLA جاهزين للنسخ + أزرار النسخ + رابط المصدر + مصادر إضافية.
+
+Stage Summary:
+- النظام الهجين ثلاثي الطبقات شغّال بالكامل.
+- الطبقة 1 (تشريح الملف): كشف الرقم المطبوع من الهوامش + التصحيح التلقائي.
+- الطبقة 2 (التصحيح): عند wrong_page، يعرض realPage الصحيح المطبوع في الكتاب.
+- الطبقة 3 (البديل العالمي): عند not_found، يطير بالاقتباس+المؤلف للمكتبات العالمية ويجلب المرجع + التوثيق الجاهز APA/MLA — الباحث لا يخرج أبداً بدون إجابة.
+- ملفات محدّثة: src/lib/verify.ts, src/lib/library.ts, src/lib/types.ts, src/app/api/research/verify-page/route.ts, src/components/citation/citation-card.tsx, src/app/page.tsx.
