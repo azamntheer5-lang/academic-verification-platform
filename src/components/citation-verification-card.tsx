@@ -16,6 +16,7 @@ import {
   Brain,
   ListChecks,
   Award,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 import type {
@@ -92,7 +93,7 @@ const STATUS_CONFIG: Record<
   },
 }
 
-type Tab = 'hybrid' | 'cleaner'
+type Tab = 'hybrid' | 'cleaner' | 'generator'
 
 export function CitationVerificationCard() {
   const [tab, setTab] = useState<Tab>('hybrid')
@@ -147,26 +148,34 @@ export function CitationVerificationCard() {
             </div>
 
             {/* ── Tabs ── */}
-            <div className="grid grid-cols-2 gap-2 mb-5">
+            <div className="grid grid-cols-3 gap-2 mb-5">
               <TabButton
                 active={tab === 'hybrid'}
                 onClick={() => setTab('hybrid')}
                 icon={<Brain className="w-4 h-4" />}
-                label="التدقيق الهجين والدلالي"
+                label="تدقيق هجين"
               />
               <TabButton
                 active={tab === 'cleaner'}
                 onClick={() => setTab('cleaner')}
                 icon={<ListChecks className="w-4 h-4" />}
-                label="تطهير وتنظيف المراجع"
+                label="تطهير المراجع"
+              />
+              <TabButton
+                active={tab === 'generator'}
+                onClick={() => setTab('generator')}
+                icon={<Sparkles className="w-4 h-4" />}
+                label="توليد مراجع"
               />
             </div>
 
             {/* ── Tab content ── */}
             {tab === 'hybrid' ? (
               <HybridTab style={style} />
-            ) : (
+            ) : tab === 'cleaner' ? (
               <CleanerTab style={style} />
+            ) : (
+              <GeneratorTab style={style} />
             )}
           </div>
 
@@ -542,6 +551,181 @@ function CleanerTab({ style }: { style: FormatStyle }) {
           <Award className="w-5 h-5" />
           تحميل شهادة فحص الأمانة العلمية
         </button>
+      )}
+    </div>
+  )
+}
+
+// ── Tab 3: Reference Generator (for research with no references) ─────────────
+interface GeneratedRef {
+  topic: string
+  reference: { title: string; author: string; year: string; publisher: string; fullApa: string }
+  formatted: string
+  relevanceNote: string
+}
+
+function GeneratorTab({ style }: { style: FormatStyle }) {
+  const [researchText, setResearchText] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [result, setResult] = useState<{
+    total: number
+    references: GeneratedRef[]
+    extractedTopics: string[]
+    note: string
+  } | null>(null)
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
+
+  const handleGenerate = async () => {
+    if (!researchText.trim() || researchText.trim().length < 50) return
+    setIsLoading(true)
+    setResult(null)
+    try {
+      const res = await fetch('/api/generate-references', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ researchText, style }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setResult({
+          total: data.total,
+          references: data.references,
+          extractedTopics: data.extractedTopics,
+          note: data.note,
+        })
+      } else {
+        setResult({ total: 0, references: [], extractedTopics: [], note: data.error || 'فشل التوليد.' })
+      }
+    } catch {
+      setResult({ total: 0, references: [], extractedTopics: [], note: 'فشل الاتصال.' })
+    } finally {
+      setIsLoading(false)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('audits-changed'))
+      }
+    }
+  }
+
+  const copyRef = (text: string, idx: number) => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedIdx(idx)
+      setTimeout(() => setCopiedIdx(null), 1500)
+    })
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-3">
+        <p className="text-sm text-violet-900 leading-relaxed">
+          <Sparkles className="w-4 h-4 inline ml-1" />
+          الصق فقرة من بحثك <strong>بدون أي مراجع</strong> — سيحلل النظام محتواها، يستخرج المواضيع
+          الرئيسية، ويبحث في المكتبات العالمية عن كتب حقيقية موثّقة 100% تدعم أفكار بحثك.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-2">
+          الصق نص البحث (فقرة أو أكثر بدون مراجع)
+        </label>
+        <textarea
+          value={researchText}
+          onChange={(e) => setResearchText(e.target.value)}
+          rows={6}
+          placeholder="مثال: يُعدّ التعلم العميق أحد فروع الذكاء الاصطناعي الذي حقق تقدماً ملحوظاً في السنوات الأخيرة، حيث أثبتت الشبكات العصبية الاصطناعية قدرتها على تمثيل الدوال المعقدة بدقة عالية..."
+          className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50 resize-y"
+        />
+        <p className="text-xs text-slate-500 mt-1">{researchText.length} حرف</p>
+      </div>
+
+      <button
+        onClick={handleGenerate}
+        disabled={isLoading || researchText.trim().length < 50}
+        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+      >
+        {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
+        {isLoading ? 'يحلّل المحتوى ويبحث في المكتبات العالمية...' : 'ولّد مراجع حقيقية لبحثي'}
+      </button>
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-20 bg-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {result && !isLoading && (
+        <div className="space-y-3">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="text-sm text-slate-700 leading-relaxed">{result.note}</p>
+            {result.extractedTopics.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <span className="text-xs text-slate-500">المواضيع المستخرجة:</span>
+                {result.extractedTopics.map((t, i) => (
+                  <Badge key={i} variant="outline" className="text-xs">{t}</Badge>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {result.references.length > 0 && (
+            <>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-slate-800">{result.total} مرجع حقيقي موثّق</p>
+                <button
+                  onClick={() =>
+                    generateCertificate({
+                      totalChecked: result.total,
+                      authenticatedCount: result.total,
+                      suspiciousCount: 0,
+                      items: result.references.map((r) => ({
+                        quote: r.topic,
+                        author: r.reference.author,
+                        status: 'ALTERNATIVE_FOUND',
+                        verifiedTitle: r.reference.title,
+                        verifiedAuthor: r.reference.author,
+                        verifiedPage: null,
+                        fullApa: r.formatted,
+                      })),
+                    })
+                  }
+                  className="text-xs px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1 font-bold"
+                >
+                  <Award className="h-3.5 w-3.5" /> تحميل شهادة
+                </button>
+              </div>
+              <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+                {result.references.map((ref, i) => (
+                  <div key={i} className="rounded-xl border border-violet-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <Badge className="text-xs bg-violet-100 text-violet-800 border-violet-200 shrink-0">
+                        {i + 1}. {ref.topic}
+                      </Badge>
+                      <button
+                        onClick={() => copyRef(ref.formatted, i)}
+                        className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1 shrink-0"
+                      >
+                        {copiedIdx === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        {copiedIdx === i ? 'نُسخ' : 'نسخ'}
+                      </button>
+                    </div>
+                    <p className="text-sm font-medium text-slate-900">{ref.reference.title}</p>
+                    <p className="text-xs text-slate-600">
+                      {ref.reference.author} · {ref.reference.year}
+                      {ref.reference.publisher ? ` · ${ref.reference.publisher}` : ''}
+                    </p>
+                    {ref.relevanceNote && (
+                      <p className="text-xs text-violet-700 mt-1 italic">💡 {ref.relevanceNote}</p>
+                    )}
+                    <div className="mt-2 bg-slate-50 rounded px-2 py-1.5 text-xs font-mono text-slate-700 border border-slate-200" dir="ltr">
+                      {ref.formatted}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   )
