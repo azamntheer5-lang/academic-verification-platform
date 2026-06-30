@@ -160,3 +160,29 @@ Stage Summary:
 - العقد (Contract) موحّد بين Python و TS: {status, message, page, alternative}.
 - ملفات جديدة: backend/{requirements.txt,main.py}, src/server/verify-engine/{models,pdf-extractor,apa-formatter,library-fallback,service}.ts, src/app/api/verify-engine/route.ts, src/components/citation-verification-card.tsx.
 - ملفات محدّثة: src/app/layout.tsx (Cairo font), src/app/page.tsx (hero section).
+
+---
+Task ID: 3-modules-upgrade
+Agent: main
+Task: ترقية المنصة بـ 3 وحدات متقدمة: (1) المطابقة الدلالية + VERIFIED_SEMANTIC، (2) مطهر الهلوسة الأكاديمية batch-cleaner، (3) مهندس التنسيق الجامعي (6 صيغ)، + تحديث الواجهة بتبويبات وdropdown عالمي.
+
+Work Log:
+- M1 (المطابقة الدلالية): أضفت VERIFIED_SEMANTIC للـ VerifyStatus enum. أضفت scanFileSemantic() في pdf-extractor.ts: خوارزمية token-based fuzzy + keyword-proximity (coverage × proximity × density). تدعم stopwords عربية+إنجليزية. تحدّث service.ts لتشغيل semantic تلقائياً كـ fallback بعد فشل exact match (أو يدوياً عبر flag).
+- M2 (مطهر الهلوسة): بنيت src/server/verify-engine/batch-cleaner.ts: splitBibliography (regex line breaks + numbered/bullet markers) + parseCitation (يستخرج author/year/title من صيغ Last, First (Year). Title. Publisher.) + cleanBibliography orchestrator. يستدعي findInGlobalLibrary بالعنوان فقط (بدون المؤلف لتجنب تلوث النتائج) + titleMatches (coverage ≥60% + rare keyword) + authorMatches (longest token كاسم عائلة). يرجع SUSPICIOUS_HALLUCINATION للمراجع غير الموثقة + توصية بديلة حقيقية. بنيت POST /api/clean-bibliography.
+- M3 (مهندس التنسيق): بنيت src/server/verify-engine/formatters.ts: 6 صيغ (APA 7, MLA 9, Chicago, Harvard, KSU=جامعة الملك سعود, Cairo=جامعة القاهرة). KSU: مؤلف bold + سنة بأقواس مربعة. Cairo: مؤلف بأقواس + عنوان بـ guillemets «». أضفت FormatStyle enum + STYLE_LABELS + formatAlternative().
+- PART 4 (الواجهة): أعدت كتابة citation-verification-card.tsx بواجهة تبويبات: Tab 1 (التدقيق الهجين والدلالي) + Tab 2 (تطهير وتنظيف المراجع). dropdown عالمي للنمط في الأعلى. checkbox "تفعيل الفحص الدلالي" بنفسجي. لوحة نتائج VERIFIED_SEMANTIC بنفسجية. CleanerTab بـ stats cards (إجمالي/موثّق/مشبوه) + قائمة بطاقات ببدائل موصى بها. FormattedAlternative ينسق التوثيق بالصيغة المختارة.
+- lint نظيف (0 أخطاء).
+- صعوبات وحلول:
+  • parser التقط "10" بدل العنوان ← السبب yearMatch.length (عدد groups) بدل yearMatch[0].length (طول النص). صُلِح.
+  • "Alfakhri" الوهمي رجع VERIFIED ← السبب تلوث نتائج web_search باسم المؤلف في الـ query. صُلِح بالبحث بالعنوان فقط + فحص authorMatches مستقل.
+  • authorMatches أخذ "M" كاسم عائلة (آخر token) ← صُلِح بأخذ الأطول token كاسم عائلة.
+- تحققت بـ curl:
+  • M1: اقتباس معاد صياغته "neural networks can represent highly complicated functions" → VERIFIED_SEMANTIC, صفحة 1, تطابق 75% ✓
+  • M2: 3 مراجع (Taleb حقيقي + Alfakhri وهمي + Smith حقيقي) → 2 VERIFIED + 1 SUSPICIOUS_HALLUCINATION ✓
+  • M3: 6 صيغ تُولّد بصيغة صحيحة (APA/MLA/Chicago/Harvard/KSU/Cairo) ✓
+- تحققت عبر Agent Browser: التبويبات ظاهرة، dropdown بـ 6 خيارات، Tab 2 تعرض 3 إجمالي/2 موثّق/1 مشبوه.
+
+Stage Summary:
+- الوحدات الثلاث شغّالة بالكامل + الواجهة محدّثة بالتبويبات وdropdown.
+- ملفات جديدة: src/server/verify-engine/{formatters,batch-cleaner}.ts, src/app/api/clean-bibliography/route.ts.
+- ملفات محدّثة: src/server/verify-engine/{models,pdf-extractor,service}.ts, src/app/api/verify-engine/route.ts, src/components/citation-verification-card.tsx.

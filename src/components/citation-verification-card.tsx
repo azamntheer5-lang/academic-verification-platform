@@ -13,15 +13,33 @@ import {
   Check,
   FileText,
   Globe,
+  Brain,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react'
-import type { VerifyStatus, AlternativeReference } from '@/server/verify-engine/models'
+import type {
+  VerifyStatus,
+  AlternativeReference,
+} from '@/server/verify-engine/models'
+import type { FormatStyle } from '@/server/verify-engine/models'
+import { STYLE_LABELS } from '@/server/verify-engine/formatters'
 
 interface ResultState {
   status: VerifyStatus
   message: string
   page: string | null
   alternative: AlternativeReference | null
+}
+
+interface CleanItem {
+  raw: string
+  parsedAuthor: string
+  parsedYear: string
+  parsedTitle: string
+  status: 'VERIFIED' | 'SUSPICIOUS_HALLUCINATION' | 'ERROR'
+  matchedSource: string | null
+  recommendation: AlternativeReference | null
+  note: string
 }
 
 const STATUS_CONFIG: Record<
@@ -41,6 +59,13 @@ const STATUS_CONFIG: Record<
     icon: AlertTriangle,
     iconColor: 'text-amber-600',
     titleColor: 'text-amber-800',
+  },
+  VERIFIED_SEMANTIC: {
+    bg: 'bg-violet-50',
+    border: 'border-violet-300',
+    icon: Brain,
+    iconColor: 'text-violet-600',
+    titleColor: 'text-violet-800',
   },
   ALTERNATIVE_FOUND: {
     bg: 'bg-indigo-50',
@@ -65,11 +90,99 @@ const STATUS_CONFIG: Record<
   },
 }
 
+type Tab = 'hybrid' | 'cleaner'
+
 export function CitationVerificationCard() {
+  const [tab, setTab] = useState<Tab>('hybrid')
+  const [style, setStyle] = useState<FormatStyle>('apa7')
+
+  return (
+    <div className="relative max-w-3xl mx-auto" dir="rtl">
+      {/* ── Premium geometric frame ── */}
+      <div className="relative">
+        <CornerOrnament className="top-0 right-0 border-t-2 border-r-2 rounded-tr-lg" />
+        <CornerOrnament className="top-0 left-0 border-t-2 border-l-2 rounded-tl-lg" />
+        <CornerOrnament className="bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg" />
+        <CornerOrnament className="bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg" />
+
+        <div className="border border-slate-300 rounded-xl bg-white shadow-xl overflow-hidden">
+          <div className="border-b-2 border-slate-800/80" />
+          <div className="border-b border-amber-500/60" />
+
+          <div className="p-6 sm:p-8">
+            {/* Header */}
+            <div className="text-center mb-6 pb-5 border-b border-slate-200">
+              <div className="inline-flex items-center justify-center gap-3 mb-2">
+                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 text-amber-400">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+              </div>
+              <h3 className="font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight">
+                منصة التحقق الأكاديمي الشاملة
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">
+                محرك هجين + مطابقة دلالية + تطهير هلوسة + مهندس تنسيق جامعي
+              </p>
+            </div>
+
+            {/* ── Global style dropdown ── */}
+            <div className="mb-5 flex items-center justify-between gap-3 flex-wrap bg-slate-50 border border-slate-200 rounded-xl p-3">
+              <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-500" />
+                اختر دليل التنسيق المعتمد:
+              </label>
+              <select
+                value={style}
+                onChange={(e) => setStyle(e.target.value as FormatStyle)}
+                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-800 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none cursor-pointer"
+              >
+                {(Object.keys(STYLE_LABELS) as FormatStyle[]).map((s) => (
+                  <option key={s} value={s}>
+                    {STYLE_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* ── Tabs ── */}
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              <TabButton
+                active={tab === 'hybrid'}
+                onClick={() => setTab('hybrid')}
+                icon={<Brain className="w-4 h-4" />}
+                label="التدقيق الهجين والدلالي"
+              />
+              <TabButton
+                active={tab === 'cleaner'}
+                onClick={() => setTab('cleaner')}
+                icon={<ListChecks className="w-4 h-4" />}
+                label="تطهير وتنظيف المراجع"
+              />
+            </div>
+
+            {/* ── Tab content ── */}
+            {tab === 'hybrid' ? (
+              <HybridTab style={style} />
+            ) : (
+              <CleanerTab style={style} />
+            )}
+          </div>
+
+          <div className="border-t border-amber-500/60" />
+          <div className="border-t-2 border-slate-800/80" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Tab 1: Hybrid + Semantic verification ────────────────────────────────────
+function HybridTab({ style }: { style: FormatStyle }) {
   const [author, setAuthor] = useState('')
   const [quote, setQuote] = useState('')
   const [page, setPage] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const [semantic, setSemantic] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<ResultState | null>(null)
   const [copied, setCopied] = useState(false)
@@ -86,21 +199,17 @@ export function CitationVerificationCard() {
       })
       return
     }
-
     setIsLoading(true)
     setResult(null)
-
     const formData = new FormData()
     formData.append('file', file)
     formData.append('author', author)
     formData.append('quote', quote)
     formData.append('page', page)
+    if (semantic) formData.append('semantic', 'true')
 
     try {
-      const response = await fetch('/api/verify-engine', {
-        method: 'POST',
-        body: formData,
-      })
+      const response = await fetch('/api/verify-engine', { method: 'POST', body: formData })
       const data = (await response.json()) as ResultState
       setResult(data)
     } catch {
@@ -116,10 +225,14 @@ export function CitationVerificationCard() {
   }
 
   const copyApa = () => {
-    if (!result?.alternative?.fullApa) return
-    navigator.clipboard?.writeText(result.alternative.fullApa).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
+    if (!result?.alternative) return
+    // Format the alternative in the globally selected style
+    import('@/server/verify-engine/formatters').then(({ formatAlternative }) => {
+      const text = formatAlternative(result.alternative!, style)
+      navigator.clipboard?.writeText(text).then(() => {
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1800)
+      })
     })
   }
 
@@ -134,242 +247,315 @@ export function CitationVerificationCard() {
   const StatusIcon = config?.icon
 
   return (
-    <div className="relative max-w-3xl mx-auto" dir="rtl">
-      {/* ── Premium geometric frame ──────────────────────────────────────────── */}
-      {/* Outer ornamental border emulating a thesis cover page */}
-      <div className="relative">
-        {/* Corner ornaments */}
-        <CornerOrnament className="top-0 right-0 border-t-2 border-r-2 rounded-tr-lg" />
-        <CornerOrnament className="top-0 left-0 border-t-2 border-l-2 rounded-tl-lg" />
-        <CornerOrnament className="bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg" />
-        <CornerOrnament className="bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg" />
-
-        <div className="border border-slate-300 rounded-xl bg-white shadow-xl overflow-hidden">
-          {/* Inner double-line accent */}
-          <div className="border-b-2 border-slate-800/80" />
-          <div className="border-b border-amber-500/60" />
-
-          <div className="p-6 sm:p-8">
-            {/* Header */}
-            <div className="text-center mb-7 pb-5 border-b border-slate-200">
-              <div className="inline-flex items-center justify-center gap-3 mb-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 text-amber-400">
-                  <BookOpen className="w-6 h-6" />
-                </div>
-              </div>
-              <h3 className="font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight">
-                نظام التحقق الهجين
-              </h3>
-              <p className="text-sm text-slate-500 mt-1">
-                تشريح عميق للملف + اتصال سحابي بالمكتبات العالمية · دقة 100%
-              </p>
-            </div>
-
-            {/* Input Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
-                  اسم العالم / المؤلف
-                </label>
-                <input
-                  type="text"
-                  value={author}
-                  onChange={(e) => setAuthor(e.target.value)}
-                  placeholder="مثال: أحمد شوقي أو Smith"
-                  className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
-                  رقم الصفحة المتوقع <span className="text-slate-400 font-normal">(اختياري)</span>
-                </label>
-                <input
-                  type="text"
-                  value={page}
-                  onChange={(e) => setPage(e.target.value)}
-                  placeholder="مثال: 45"
-                  className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50"
-                />
-              </div>
-            </div>
-
-            <div className="mb-5">
-              <label className="block text-sm font-bold text-slate-700 mb-2">
-                النص المقتبس (الذي تريد تدقيقه)
-              </label>
-              <textarea
-                value={quote}
-                onChange={(e) => setQuote(e.target.value)}
-                rows={3}
-                placeholder="اكتب الاقتباس الحرفي أو الفكرة هنا..."
-                className="w-full p-3 border border-slate-300 rounded-xl text-sm italic focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50 resize-y"
-              />
-            </div>
-
-            {/* File Upload Zone */}
-            <div
-              onDragOver={(e) => {
-                e.preventDefault()
-                setDragOver(true)
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-              className={`mb-6 p-5 border-2 border-dashed rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row items-center justify-between gap-4 ${
-                dragOver
-                  ? 'border-amber-500 bg-amber-50'
-                  : file
-                    ? 'border-emerald-400 bg-emerald-50/50'
-                    : 'border-slate-300 bg-slate-50/50 hover:border-slate-500'
-              }`}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                accept=".pdf,application/pdf"
-                className="hidden"
-              />
-              <div className="flex items-center gap-3">
-                <div
-                  className={`flex h-12 w-12 items-center justify-center rounded-xl ${
-                    file ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {file ? <CheckCircle className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-sm font-bold text-slate-800">الكتاب المصدر (PDF)</span>
-                  <span className="text-xs text-slate-500">
-                    {file ? `✓ ${file.name}` : 'للبحث واستخراج رقم الصفحة الحقيقي من الهوامش'}
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  fileInputRef.current?.click()
-                }}
-                className="bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm py-2.5 px-5 rounded-xl border border-slate-300 shadow-sm transition-all flex items-center gap-2 shrink-0"
-              >
-                <Upload className="w-4 h-4" /> ارفع المرجع
-              </button>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              onClick={handleProcess}
-              disabled={isLoading}
-              className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
-            >
-              {isLoading ? (
-                <Loader2 className="w-6 h-6 animate-spin" />
-              ) : (
-                <CheckCircle className="w-6 h-6" />
-              )}
-              {isLoading ? 'يتم الآن فحص الملف والمكتبات العالمية...' : 'ابدأ التدقيق والتحقق الشامل'}
-            </button>
-
-            {/* Skeleton loader while waiting */}
-            {isLoading && (
-              <div className="mt-6 space-y-3">
-                <div className="h-4 bg-slate-200 rounded animate-pulse w-3/4" />
-                <div className="h-4 bg-slate-200 rounded animate-pulse w-1/2" />
-                <div className="h-20 bg-slate-200 rounded animate-pulse" />
-              </div>
-            )}
-
-            {/* Results Display */}
-            {result && !isLoading && config && StatusIcon && (
-              <div className={`mt-6 p-5 rounded-2xl border-2 ${config.bg} ${config.border}`}>
-                <div className="flex items-center gap-3 font-bold text-lg mb-3">
-                  <StatusIcon className={`w-6 h-6 shrink-0 ${config.iconColor}`} />
-                  <span className={config.titleColor}>{result.message}</span>
-                </div>
-
-                {/* Verified page (from file) */}
-                {result.page &&
-                  (result.status === 'VERIFIED_EXACT' || result.status === 'VERIFIED_CORRECTED') && (
-                    <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm mt-3">
-                      <span className="font-medium text-slate-600">رقم الصفحة الحقيقي والمطابق:</span>
-                      <span className="font-bold text-xl bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-1.5 rounded-lg">
-                        صـ {result.page}
-                      </span>
-                    </div>
-                  )}
-
-                {/* Alternative from global library */}
-                {result.status === 'ALTERNATIVE_FOUND' && result.alternative && (
-                  <div className="mt-4 bg-white p-5 rounded-xl border border-indigo-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
-                      <Globe className="w-4 h-4 text-indigo-600" />
-                      <span className="text-sm font-bold text-indigo-700">
-                        ✓ التوثيق المعتمد عالمياً (صحيح 100%):
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 mb-4">
-                      <p>
-                        <strong>العنوان المعتمد:</strong> {result.alternative.title}
-                      </p>
-                      <p>
-                        <strong>المؤلف الرسمي:</strong> {result.alternative.author}
-                      </p>
-                      <p>
-                        <strong>سنة النشر:</strong> {result.alternative.year}
-                      </p>
-                      <p>
-                        <strong>الناشر:</strong> {result.alternative.publisher || '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-slate-500">
-                          التوثيق الجاهز للنسخ (APA 7):
-                        </span>
-                        <button
-                          onClick={copyApa}
-                          className="text-xs px-3 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 flex items-center gap-1 transition-colors"
-                        >
-                          {copied ? (
-                            <>
-                              <Check className="h-3 w-3" /> نُسخ
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="h-3 w-3" /> نسخ APA
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      <div
-                        className="bg-slate-50 p-3 rounded-lg text-sm font-mono text-slate-800 select-all border border-slate-200"
-                        dir="ltr"
-                      >
-                        {result.alternative.fullApa}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Inner double-line accent (bottom) */}
-          <div className="border-t border-amber-500/60" />
-          <div className="border-t-2 border-slate-800/80" />
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">اسم العالم / المؤلف</label>
+          <input
+            type="text"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder="مثال: أحمد شوقي أو Smith"
+            className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-bold text-slate-700 mb-2">
+            رقم الصفحة المتوقع <span className="text-slate-400 font-normal">(اختياري)</span>
+          </label>
+          <input
+            type="text"
+            value={page}
+            onChange={(e) => setPage(e.target.value)}
+            placeholder="مثال: 45"
+            className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50"
+          />
         </div>
       </div>
+
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-2">النص المقتبس (الذي تريد تدقيقه)</label>
+        <textarea
+          value={quote}
+          onChange={(e) => setQuote(e.target.value)}
+          rows={3}
+          placeholder="اكتب الاقتباس الحرفي أو الفكرة هنا..."
+          className="w-full p-3 border border-slate-300 rounded-xl text-sm italic focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50 resize-y"
+        />
+      </div>
+
+      {/* Semantic toggle — Module 1 */}
+      <label className="flex items-center gap-3 p-3 rounded-xl border border-violet-200 bg-violet-50/50 cursor-pointer hover:bg-violet-50 transition-colors">
+        <input
+          type="checkbox"
+          checked={semantic}
+          onChange={(e) => setSemantic(e.target.checked)}
+          className="w-4 h-4 accent-violet-600"
+        />
+        <Brain className="w-4 h-4 text-violet-600" />
+        <div className="flex-1">
+          <span className="text-sm font-bold text-violet-900">تفعيل الفحص الدلالي / بالمعنى</span>
+          <p className="text-xs text-violet-700">لإعادة الصياغة (Paraphrasing) — يطابق الفكرة لا الكلمات</p>
+        </div>
+      </label>
+
+      {/* File upload zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={`p-5 border-2 border-dashed rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row items-center justify-between gap-4 ${
+          dragOver ? 'border-amber-500 bg-amber-50' : file ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-300 bg-slate-50/50 hover:border-slate-500'
+        }`}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          accept=".pdf,application/pdf"
+          className="hidden"
+        />
+        <div className="flex items-center gap-3">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${file ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+            {file ? <CheckCircle className="w-6 h-6" /> : <FileText className="w-6 h-6" />}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-slate-800">الكتاب المصدر (PDF)</span>
+            <span className="text-xs text-slate-500">{file ? `✓ ${file.name}` : 'للبحث واستخراج رقم الصفحة الحقيقي من الهوامش'}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
+          className="bg-white hover:bg-slate-50 text-slate-800 font-bold text-sm py-2.5 px-5 rounded-xl border border-slate-300 shadow-sm transition-all flex items-center gap-2 shrink-0"
+        >
+          <Upload className="w-4 h-4" /> ارفع المرجع
+        </button>
+      </div>
+
+      <button
+        onClick={handleProcess}
+        disabled={isLoading}
+        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+      >
+        {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle className="w-6 h-6" />}
+        {isLoading ? 'يتم الآن فحص الملف والمكتبات العالمية...' : 'ابدأ التدقيق والتحقق الشامل'}
+      </button>
+
+      {isLoading && (
+        <div className="space-y-3">
+          <div className="h-4 bg-slate-200 rounded animate-pulse w-3/4" />
+          <div className="h-4 bg-slate-200 rounded animate-pulse w-1/2" />
+          <div className="h-20 bg-slate-200 rounded animate-pulse" />
+        </div>
+      )}
+
+      {result && !isLoading && config && StatusIcon && (
+        <div className={`mt-2 p-5 rounded-2xl border-2 ${config.bg} ${config.border}`}>
+          <div className="flex items-center gap-3 font-bold text-lg mb-3">
+            <StatusIcon className={`w-6 h-6 shrink-0 ${config.iconColor}`} />
+            <span className={config.titleColor}>{result.message}</span>
+          </div>
+
+          {result.page && (result.status === 'VERIFIED_EXACT' || result.status === 'VERIFIED_CORRECTED' || result.status === 'VERIFIED_SEMANTIC') && (
+            <div className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm mt-3">
+              <span className="font-medium text-slate-600">رقم الصفحة الحقيقي والمطابق:</span>
+              <span className="font-bold text-xl bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-1.5 rounded-lg">
+                صـ {result.page}
+              </span>
+            </div>
+          )}
+
+          {result.status === 'ALTERNATIVE_FOUND' && result.alternative && (
+            <div className="mt-4 bg-white p-5 rounded-xl border border-indigo-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-indigo-100">
+                <Globe className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-bold text-indigo-700">✓ التوثيق المعتمد عالمياً (صحيح 100%):</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-slate-700 mb-4">
+                <p><strong>العنوان:</strong> {result.alternative.title}</p>
+                <p><strong>المؤلف:</strong> {result.alternative.author}</p>
+                <p><strong>السنة:</strong> {result.alternative.year}</p>
+                <p><strong>الناشر:</strong> {result.alternative.publisher || '—'}</p>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-500">التوثيق الجاهز للنسخ ({STYLE_LABELS[style]}):</span>
+                  <button onClick={copyApa} className="text-xs px-3 py-1 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-700 flex items-center gap-1 transition-colors">
+                    {copied ? <><Check className="h-3 w-3" /> نُسخ</> : <><Copy className="h-3 w-3" /> نسخ</>}
+                  </button>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg text-sm font-mono text-slate-800 select-all border border-slate-200" dir="ltr">
+                  <FormattedAlternative alt={result.alternative} style={style} />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// Ornamental corner piece — gives the container its premium academic frame
-function CornerOrnament({ className }: { className: string }) {
+// ── Tab 2: Bibliography hallucination cleaner ────────────────────────────────
+function CleanerTab({ style }: { style: FormatStyle }) {
+  const [raw, setRaw] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [items, setItems] = useState<CleanItem[] | null>(null)
+  const [stats, setStats] = useState<{ total: number; verified: number; suspicious: number } | null>(null)
+
+  const handleClean = async () => {
+    if (!raw.trim()) return
+    setIsLoading(true)
+    setItems(null)
+    setStats(null)
+    try {
+      const res = await fetch('/api/clean-bibliography', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw, style }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setItems(data.items)
+        setStats({ total: data.total, verified: data.verifiedCount, suspicious: data.suspiciousCount })
+      } else {
+        setItems([{ raw: 'خطأ', parsedAuthor: '', parsedYear: '', parsedTitle: '', status: 'ERROR', matchedSource: null, recommendation: null, note: data.error || 'فشل الفحص.' }])
+      }
+    } catch {
+      setItems([{ raw: 'خطأ', parsedAuthor: '', parsedYear: '', parsedTitle: '', status: 'ERROR', matchedSource: null, recommendation: null, note: 'فشل الاتصال.' }])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return (
-    <div
-      className={`absolute z-10 h-7 w-7 border-amber-500 pointer-events-none ${className}`}
-      aria-hidden
-    />
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-bold text-slate-700 mb-2">
+          الصق قائمة المراجع كاملة (كل مرجع في سطر)
+        </label>
+        <textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          rows={8}
+          placeholder={`مثال:\nSmith, J. (2018). Fundamentals of Machine Learning. MIT Press.\nTaleb, N. (2010). The Black Swan. Random House.\nAlfakhri, M. (2099). Quantum Bibliography Theory. Fake Press.`}
+          className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none transition-all bg-slate-50/50 resize-y font-mono"
+        />
+        <p className="text-xs text-slate-500 mt-1">{raw.length} حرف · {raw.split(/\r?\n/).filter((l) => l.trim()).length} سطر</p>
+      </div>
+
+      <button
+        onClick={handleClean}
+        disabled={isLoading || !raw.trim()}
+        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+      >
+        {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ListChecks className="w-6 h-6" />}
+        {isLoading ? 'جارٍ فحص كل مرجع عبر المكتبات الثلاث...' : 'ابدأ تطهير وتنظيف المراجع'}
+      </button>
+
+      {isLoading && (
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 bg-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+      )}
+
+      {stats && (
+        <div className="grid grid-cols-3 gap-2">
+          <StatCard label="إجمالي" value={stats.total} cls="bg-slate-100 text-slate-800" />
+          <StatCard label="موثّق ✓" value={stats.verified} cls="bg-emerald-100 text-emerald-800" />
+          <StatCard label="مشبوه ⚠" value={stats.suspicious} cls="bg-rose-100 text-rose-800" />
+        </div>
+      )}
+
+      {items && !isLoading && (
+        <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+          {items.map((item, i) => (
+            <CleanItemCard key={i} item={item} style={style} />
+          ))}
+        </div>
+      )}
+    </div>
   )
+}
+
+function CleanItemCard({ item, style }: { item: CleanItem; style: FormatStyle }) {
+  const tone =
+    item.status === 'VERIFIED'
+      ? 'border-emerald-200 bg-emerald-50/40'
+      : item.status === 'SUSPICIOUS_HALLUCINATION'
+        ? 'border-rose-300 bg-rose-50/40'
+        : 'border-slate-200 bg-slate-50/40'
+  const badge =
+    item.status === 'VERIFIED'
+      ? 'bg-emerald-200 text-emerald-900 border-emerald-300'
+      : item.status === 'SUSPICIOUS_HALLUCINATION'
+        ? 'bg-rose-200 text-rose-900 border-rose-300'
+        : 'bg-slate-200 text-slate-700 border-slate-300'
+  const label =
+    item.status === 'VERIFIED'
+      ? 'موثّق ✓'
+      : item.status === 'SUSPICIOUS_HALLUCINATION'
+        ? 'هلوسة وهمية ⚠'
+        : 'خطأ'
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="text-sm font-medium text-slate-900 truncate flex-1">{item.raw}</p>
+        <span className={`text-xs px-2 py-0.5 rounded-full border font-bold shrink-0 ${badge}`}>{label}</span>
+      </div>
+      <p className="text-xs text-slate-600 leading-relaxed">{item.note}</p>
+      {item.recommendation && (
+        <div className="mt-2 pt-2 border-t border-rose-200 bg-white/60 rounded-lg p-2">
+          <p className="text-xs font-bold text-rose-800 mb-1">💡 بديل حقيقي موثّق:</p>
+          <p className="text-xs text-slate-700">«{item.recommendation.title}» — {item.recommendation.author}{item.recommendation.year ? ` (${item.recommendation.year})` : ''}</p>
+          <div className="mt-1 bg-slate-50 rounded px-2 py-1 text-[11px] font-mono text-slate-700 border border-slate-200" dir="ltr">
+            <FormattedAlternative alt={item.recommendation} style={style} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Renders the alternative in the chosen style (lazy-formatted client-side).
+function FormattedAlternative({ alt, style }: { alt: AlternativeReference; style: FormatStyle }) {
+  const [text, setText] = useState<string>(alt.fullApa)
+  useRef(null)
+  // dynamically import the formatter (keeps the bundle thin)
+  import('@/server/verify-engine/formatters').then(({ formatAlternative }) => {
+    setText(formatAlternative(alt, style))
+  })
+  return <>{text}</>
+}
+
+// ── small UI atoms ────────────────────────────────────────────────────────────
+function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
+        active ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
+function StatCard({ label, value, cls }: { label: string; value: number; cls: string }) {
+  return (
+    <div className={`rounded-xl p-3 text-center border border-current/10 ${cls}`}>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs font-medium opacity-80">{label}</p>
+    </div>
+  )
+}
+
+function CornerOrnament({ className }: { className: string }) {
+  return <div className={`absolute z-10 h-7 w-7 border-amber-500 pointer-events-none ${className}`} aria-hidden />
 }

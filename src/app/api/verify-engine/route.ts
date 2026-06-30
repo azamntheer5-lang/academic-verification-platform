@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
     const author = String(form.get('author') || '')
     const quote = String(form.get('quote') || '')
     const page = String(form.get('page') || form.get('expected_page') || '')
+    const semantic = String(form.get('semantic') || '') === 'true'
 
     if (!file || !(file instanceof File)) {
       return NextResponse.json(
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const result = await runVerification({ file, author, quote, expectedPage: page })
+    const result = await runVerification({ file, author, quote, expectedPage: page, semantic })
     return NextResponse.json(result)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'verify-engine-error'
