@@ -17,48 +17,48 @@ datasource db {
 
 // ── 1. Users (researchers) ───────────────────────────────────────────────────
 model User {
-  id        String      @id @default(cuid())
-  name      String
-  email     String      @unique
-  createdAt DateTime    @default(now())
+  id         String     @id @default(cuid())
+  name       String
+  email      String     @unique
+  createdAt  DateTime   @default(now())
   researches Research[]
 }
 
 // ── 2. Research projects ─────────────────────────────────────────────────────
 model Research {
-  id        String      @id @default(cuid())
+  id        String             @id @default(cuid())
   title     String
   userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   documents Document[]
   citations ResearchCitation[]
-  createdAt DateTime    @default(now())
+  createdAt DateTime           @default(now())
 }
 
 // ── 3. Uploaded source files (PDF/Word) ──────────────────────────────────────
 model Document {
-  id          String   @id @default(cuid())
-  fileName    String
-  fileUrl     String
-  fileType    String   @default("pdf") // pdf | docx
-  researchId  String
-  research    Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  fileName   String
+  fileUrl    String
+  fileType   String   @default("pdf") // pdf | docx
+  researchId String
+  research   Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
 }
 
 // ── 4. Citations within a research (the heart of the system) ─────────────────
 model ResearchCitation {
-  id             String   @id @default(cuid())
-  researchId     String
-  research       Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  researchId String
+  research   Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
 
   // Researcher inputs
-  authorInput    String
-  quoteInput     String
-  expectedPage   String?
+  authorInput  String
+  quoteInput   String
+  expectedPage String?
 
   // Final verification status (PENDING | VERIFIED_EXACT | VERIFIED_CORRECTED | ALTERNATIVE_FOUND | HALLUCINATION | NOT_FOUND)
-  status         String   @default("PENDING")
+  status String @default("PENDING")
 
   // Verified canonical reference (the "100% correct" output)
   verifiedAuthor    String?
@@ -71,64 +71,64 @@ model ResearchCitation {
   fullApaCitation   String?
   fullMlaCitation   String?
 
-  verification   VerificationResult?
+  verification VerificationResult?
 
-  createdAt      DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 // ── 5. Verification results (the smart radar) ────────────────────────────────
 model VerificationResult {
-  id               String           @id @default(cuid())
-  citationId       String           @unique
-  citation         ResearchCitation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+  id         String           @id @default(cuid())
+  citationId String           @unique
+  citation   ResearchCitation @relation(fields: [citationId], references: [id], onDelete: Cascade)
 
   // File vs library
-  foundInFile      Boolean  @default(false)
-  foundInLibrary   Boolean  @default(false)
-  matchedPage      Int?
-  realPage         Int?
-  matchScore       Float    @default(0)
+  foundInFile    Boolean @default(false)
+  foundInLibrary Boolean @default(false)
+  matchedPage    Int?
+  realPage       Int?
+  matchScore     Float   @default(0)
 
   // Integrity / hallucination
-  isHallucination  Boolean  @default(false)
-  isRetracted      Boolean  @default(false)
+  isHallucination  Boolean @default(false)
+  isRetracted      Boolean @default(false)
   retractionReason String?
-  isPredatory      Boolean  @default(false)
+  isPredatory      Boolean @default(false)
   predatoryNote    String?
   contextWarning   String?
-  contextSeverity  String?  // ok | warning | critical
-  semanticMatch    Boolean  @default(false)
-  semanticScore    Float    @default(0)
+  contextSeverity  String? // ok | warning | critical
+  semanticMatch    Boolean @default(false)
+  semanticScore    Float   @default(0)
 
   // Predictive page (M10)
   predictedChapter String?
-  predictedRange   String?  // e.g. "65-88"
+  predictedRange   String? // e.g. "65-88"
 
-  createdAt        DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 // ── 6. University guideline adapters (M8) ────────────────────────────────────
 model UniversityGuideline {
-  id          String   @id @default(cuid())
-  name        String   // e.g. "جامعة الملك سعود"
-  rulesText   String   // extracted rules from the uploaded PDF (LLM-parsed)
-  rawExtract  String?  // the raw text of the guideline PDF
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String // e.g. "جامعة الملك سعود"
+  rulesText  String // extracted rules from the uploaded PDF (LLM-parsed)
+  rawExtract String? // the raw text of the guideline PDF
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // ── 7. Citation network edges (M7) ───────────────────────────────────────────
 // An edge records a discovered "A cites B" or "A co-cites with B" relationship
 // between two cited works in a research.
 model CitationEdge {
-  id           String   @id @default(cuid())
-  researchId   String
-  fromAuthor   String   // the citing author/work key
-  toAuthor     String   // the cited author/work key
-  relation     String   @default("cites") // cites | co_cite | suggests
-  weight       Float    @default(1)
-  evidence     String?  // URL or snippet supporting the relation
-  createdAt    DateTime @default(now())
+  id         String   @id @default(cuid())
+  researchId String
+  fromAuthor String // the citing author/work key
+  toAuthor   String // the cited author/work key
+  relation   String   @default("cites") // cites | co_cite | suggests
+  weight     Float    @default(1)
+  evidence   String? // URL or snippet supporting the relation
+  createdAt  DateTime @default(now())
 
   @@index([researchId])
 }
@@ -139,35 +139,35 @@ model CitationEdge {
 // models above extend the system.
 
 model Source {
-  id          String   @id @default(cuid())
-  type        String   @default("book")
-  title       String
-  authors     String
-  year        String
-  publisher   String?
-  city        String?
-  edition     String?
-  journal     String?
-  volume      String?
-  issue       String?
-  pagesRange  String?
-  url         String?
-  doi         String?
-  language    String? @default("ar")
-  note        String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  type       String   @default("book")
+  title      String
+  authors    String
+  year       String
+  publisher  String?
+  city       String?
+  edition    String?
+  journal    String?
+  volume     String?
+  issue      String?
+  pagesRange String?
+  url        String?
+  doi        String?
+  language   String?  @default("ar")
+  note       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  pages      Page[]
-  citations  Citation[]
+  pages     Page[]
+  citations Citation[]
 }
 
 model Page {
-  id        String @id @default(cuid())
-  sourceId  String
-  number    Int
-  content   String
-  source    Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  sourceId String
+  number   Int
+  content  String
+  source   Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@unique([sourceId, number])
   @@index([sourceId])
@@ -189,7 +189,7 @@ model Citation {
   llmNote     String?
   createdAt   DateTime @default(now())
 
-  source      Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId])
 }
