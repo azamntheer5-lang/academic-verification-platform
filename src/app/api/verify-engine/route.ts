@@ -1,50 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runVerification } from '@/server/verify-engine/service'
 import { persistVerification } from '@/server/verify-engine/persistence'
+import {
+  validateFile,
+  validateText,
+  rateLimit,
+  rateLimitResponse,
+  logError,
+  MAX_QUOTE_LENGTH,
+  MAX_AUTHOR_LENGTH,
+} from '@/server/verify-engine/server-utils'
 
 // POST multipart/form-data:
-//   file:          PDF file
-//   author:        string
-//   quote:         string
+//   file:          PDF file (max 10MB)
+//   author:        string (max 200 chars)
+//   quote:         string (max 5000 chars)
 //   page:          string (optional, the expected page number)
 //   semantic:      'true' to enable paraphrase matching (Module 1)
 //
-// Thin route handler that delegates to the decoupled verify-engine service,
-// then persists the audit record to the database (User/Research/Citation/
-// VerificationResult) so it shows up in /api/my-library.
+// Validates inputs, rate-limits per IP, runs the hybrid verification, then
+// persists the audit record to the database.
 export async function POST(req: NextRequest) {
+  // ── Rate limit ──
+  if (!rateLimit(req)) {
+    return rateLimitResponse()
+  }
   try {
     const form = await req.formData().catch(() => null)
     if (!form) {
       return NextResponse.json({ status: 'ERROR', message: 'متوقع multipart/form-data.' }, { status: 400 })
     }
     const file = form.get('file')
-    const author = String(form.get('author') || '')
-    const quote = String(form.get('quote') || '')
-    const page = String(form.get('page') || form.get('expected_page') || '')
+    const fileCheck = validateFile(file instanceof File ? file : null, ['.pdf'])
+    if (!fileCheck.ok) {
+      return NextResponse.json(
+        { status: 'ERROR', message: fileCheck.error, page: null, alternative: null },
+        { status: 400 },
+      )
+    }
+
+    const authorCheck = validateText(String(form.get('author') || ''), 'اسم العالم', MAX_AUTHOR_LENGTH)
+    if (!authorCheck.ok) {
+      return NextResponse.json(
+        { status: 'ERROR', message: authorCheck.error, page: null, alternative: null },
+        { status: 400 },
+      )
+    }
+
+    const quoteCheck = validateText(String(form.get('quote') || ''), 'نص الاقتباس', MAX_QUOTE_LENGTH)
+    if (!quoteCheck.ok) {
+      return NextResponse.json(
+        { status: 'ERROR', message: quoteCheck.error, page: null, alternative: null },
+        { status: 400 },
+      )
+    }
+
+    const page = String(form.get('page') || form.get('expected_page') || '').trim()
     const semantic = String(form.get('semantic') || '') === 'true'
 
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { status: 'ERROR', message: 'لم يتم استلام ملف PDF.', page: null, alternative: null },
-        { status: 400 },
-      )
-    }
-    if (!author.trim() || !quote.trim()) {
-      return NextResponse.json(
-        { status: 'ERROR', message: 'اسم العالم ونص الاقتباس مطلوبان.', page: null, alternative: null },
-        { status: 400 },
-      )
-    }
+    const result = await runVerification({
+      file: fileCheck.file,
+      author: authorCheck.value,
+      quote: quoteCheck.value,
+      expectedPage: page,
+      semantic,
+    })
 
-    const result = await runVerification({ file, author, quote, expectedPage: page, semantic })
-
-    // Persist the audit record (non-blocking — failure here must not break
-    // the verification response).
+    // Persist the audit record — log errors instead of silently swallowing.
     try {
       await persistVerification({
-        author,
-        quote,
+        author: authorCheck.value,
+        quote: quoteCheck.value,
         expectedPage: page,
         status: result.status,
         printedPage: result.page,
@@ -58,12 +84,13 @@ export async function POST(req: NextRequest) {
             }
           : null,
       })
-    } catch {
-      /* persistence is best-effort */
+    } catch (e) {
+      logError('verify-engine:persist', e)
     }
 
     return NextResponse.json(result)
   } catch (e) {
+    logError('verify-engine', e)
     const msg = e instanceof Error ? e.message : 'verify-engine-error'
     return NextResponse.json(
       { status: 'ERROR', message: msg, page: null, alternative: null },

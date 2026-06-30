@@ -1,29 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cleanBibliography } from '@/server/verify-engine/batch-cleaner'
 import { persistBatch } from '@/server/verify-engine/persistence'
+import {
+  validateText,
+  rateLimit,
+  rateLimitResponse,
+  logError,
+  MAX_BIBLIOGRAPHY_LENGTH,
+} from '@/server/verify-engine/server-utils'
 import type { FormatStyle } from '@/server/verify-engine/models'
 
 // POST { raw: string, style?: FormatStyle }
-// Parses a pasted bibliography, runs each entry through the 3-layer library
-// fallback, flags hallucinations, returns real recommendations, and persists
-// the whole batch to the database so it appears in /api/my-library.
+// Validates, rate-limits, parses the bibliography, runs 3-layer verification,
+// flags hallucinations, returns recommendations, and persists to the database.
 export async function POST(req: NextRequest) {
+  if (!rateLimit(req)) {
+    return rateLimitResponse()
+  }
   try {
-    const body = await req.json().catch(() => ({}))
-    const raw = String(body?.raw || '')
-    if (!raw.trim()) {
-      return NextResponse.json({ ok: false, error: 'النص فارغ.' }, { status: 400 })
+    const body = await req.json().catch(() => null)
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json({ ok: false, error: 'متوقع JSON.' }, { status: 400 })
     }
-    if (raw.length > 20000) {
-      return NextResponse.json(
-        { ok: false, error: 'النص طويل جداً (الحد 20000 حرف).' },
-        { status: 400 },
-      )
+    const rawCheck = validateText(String(body.raw || ''), 'قائمة المراجع', MAX_BIBLIOGRAPHY_LENGTH)
+    if (!rawCheck.ok) {
+      return NextResponse.json({ ok: false, error: rawCheck.error }, { status: 400 })
     }
-    const style = (body?.style as FormatStyle) || 'apa7'
-    const result = await cleanBibliography({ raw, style })
+    const style = (body.style as FormatStyle) || 'apa7'
+    const result = await cleanBibliography({ raw: rawCheck.value, style })
 
-    // Persist the batch to the database (best-effort).
+    // Persist the batch — log errors instead of silently swallowing.
     try {
       await persistBatch({
         items: result.items.map((i) => ({
@@ -43,12 +49,13 @@ export async function POST(req: NextRequest) {
             : null,
         })),
       })
-    } catch {
-      /* persistence is best-effort */
+    } catch (e) {
+      logError('clean-bibliography:persist', e)
     }
 
     return NextResponse.json({ ok: true, ...result })
   } catch (e) {
+    logError('clean-bibliography', e)
     const msg = e instanceof Error ? e.message : 'clean-bibliography-error'
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })
   }

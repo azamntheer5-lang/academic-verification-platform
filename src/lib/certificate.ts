@@ -34,11 +34,51 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 export function generateCertificate(data: CertificateData) {
+  const html = buildCertificateHtml(data)
+
+  // Strategy 1: open a new window (preferred — gives the user a full tab to
+  // review the certificate before printing).
   const win = window.open('', '_blank', 'width=900,height=1200')
-  if (!win) {
-    alert('الرجاء السماح بالنوافذ المنبثقة لتحميل الشهادة.')
+  if (win && !win.closed) {
+    win.document.write(html)
+    win.document.close()
     return
   }
+
+  // Strategy 2 (fallback): popup was blocked. Write the certificate into a
+  // hidden iframe in the current document and trigger print from there. This
+  // works even with strict popup blockers.
+  const existing = document.getElementById('__cert_iframe__') as HTMLIFrameElement | null
+  if (existing) existing.remove()
+  const iframe = document.createElement('iframe')
+  iframe.id = '__cert_iframe__'
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentWindow?.document
+  if (doc) {
+    doc.open()
+    doc.write(html)
+    doc.close()
+    // Give the iframe a tick to render before printing.
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus()
+        iframe.contentWindow?.print()
+      } catch {
+        // last resort: open in same tab
+        document.write(html)
+      }
+      setTimeout(() => iframe.remove(), 1000)
+    }, 600)
+  }
+}
+
+function buildCertificateHtml(data: CertificateData): string {
 
   const dateStr = new Date().toLocaleDateString('ar-EG', {
     year: 'numeric',
@@ -61,7 +101,7 @@ export function generateCertificate(data: CertificateData) {
     )
     .join('')
 
-  win.document.write(`<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -274,8 +314,7 @@ export function generateCertificate(data: CertificateData) {
     </div>
   </div>
 </body>
-</html>`)
-  win.document.close()
+</html>`
 }
 
 function escapeHtml(s: string): string {

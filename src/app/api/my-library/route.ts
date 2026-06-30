@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchMyLibrary } from '@/server/verify-engine/persistence'
+import { logError } from '@/server/verify-engine/server-utils'
 
 // GET /api/my-library
 // Returns the authenticated user's persisted verification audits (newest
@@ -31,7 +32,10 @@ export async function GET() {
       })),
     })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'my-library-error'
-    return NextResponse.json({ ok: false, error: msg }, { status: 500 })
+    logError('my-library:GET', e)
+    return NextResponse.json(
+      { ok: false, error: e instanceof Error ? e.message : 'my-library-error' },
+      { status: 500 },
+    )
   }
 }

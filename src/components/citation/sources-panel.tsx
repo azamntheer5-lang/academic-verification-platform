@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Library, Trash2, ExternalLink, BookMarked, Loader2, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Library, Trash2, ExternalLink, BookMarked, Loader2, ShieldCheck, ShieldAlert, Download } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SavedSource } from '@/lib/types'
 
@@ -84,6 +84,26 @@ export function SourcesPanel() {
     }
   }
 
+  const removeAudit = async (id: string) => {
+    try {
+      const res = await fetch(`/api/my-library/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.ok) {
+        setAudits((a) => a.filter((x) => x.id !== id))
+        toast.success('حُذف السجل.')
+      } else {
+        toast.error(data.error || 'تعذّر الحذف.')
+      }
+    } catch {
+      toast.error('خطأ في الاتصال.')
+    }
+  }
+
+  const exportLibrary = (format: 'bibtex' | 'ris') => {
+    window.open(`/api/my-library/export?format=${format}`, '_blank')
+    toast.success(`تصدير ${format === 'ris' ? 'RIS' : 'BibTeX'} — استورده في Zotero/EndNote/Mendeley.`)
+  }
+
   return (
     <Card className="border-slate-200 shadow-sm">
       <CardHeader className="pb-3">
@@ -93,6 +113,28 @@ export function SourcesPanel() {
           <Badge variant="secondary" className="mr-auto">
             {sources.length + audits.length}
           </Badge>
+          {(sources.length > 0 || audits.length > 0) && (
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900 gap-1"
+                onClick={() => exportLibrary('bibtex')}
+                title="تصدير كل المراجع بصيغة BibTeX"
+              >
+                <Download className="h-3 w-3" /> BibTeX
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900 gap-1"
+                onClick={() => exportLibrary('ris')}
+                title="تصدير كل المراجع بصيغة RIS"
+              >
+                <Download className="h-3 w-3" /> RIS
+              </Button>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -151,6 +193,14 @@ export function SourcesPanel() {
                         </p>
                       )}
                     </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-slate-400 hover:text-red-600 shrink-0"
+                      onClick={() => removeAudit(a.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
