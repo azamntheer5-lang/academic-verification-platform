@@ -1,0 +1,12 @@
+{
+  "name": "doc-extract",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5",
+    "mammoth": "^1.9.1"
+  }
+}

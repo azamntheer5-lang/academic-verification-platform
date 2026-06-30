@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Sparkles, ScanSearch, FileCheck2, AlertTriangle, BookOpenCheck } from 'lucide-react'
+import { Loader2, Sparkles, ScanSearch, FileCheck2, AlertTriangle, BookOpenCheck, MapPin } from 'lucide-react'
 import { toast } from 'sonner'
 import { CitationCard } from '@/components/citation/citation-card'
 import { SourcesPanel } from '@/components/citation/sources-panel'
-import type { CitationRow, ExtractedCitation, VerifyResult } from '@/lib/types'
+import type { CitationRow, ExtractedCitation, VerifyResult, PageVerifyResult } from '@/lib/types'
 
 const SAMPLE = `يُعدّ التعلم العميق أحد فروع الذكاء الاصطناعي التي حققت تقدماً ملحوظاً في السنوات الأخيرة. فقد أشار (لوديتش، 2016، ص 45) إلى أن الشبكات العصبية الاصطناعية قادرة على تمثيل دوال معقدة بدقة عالية. كما يؤكد بيرسون (Pearson, 2019, p. 112) أن المعالجة الموزعة تُحسّن من كفاءة التدريب بشكل كبير.
 
@@ -138,12 +138,59 @@ export default function Home() {
     }
   }
 
+  const verifyPage = async (
+    id: string,
+    file: File,
+    quote: string,
+    claimedPage: number | null,
+  ) => {
+    if (!quote || !quote.trim()) {
+      toast.error('أدخل النص المقتبس أولاً (اضغط «تعديل» بجانب الاقتباس).')
+      return
+    }
+    setRows((rs) =>
+      rs.map((r) => (r.id === id ? { ...r, pageVerifying: true } : r)),
+    )
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('quote', quote)
+      form.append('claimedPage', claimedPage === null ? '' : String(claimedPage))
+      const res = await fetch('/api/research/verify-page', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'تعذّر التحقق من الصفحة.')
+        setRows((rs) => rs.map((r) => (r.id === id ? { ...r, pageVerifying: false } : r)))
+        return
+      }
+      const pv = data.result as PageVerifyResult
+      setRows((rs) =>
+        rs.map((r) => (r.id === id ? { ...r, pageVerifying: false, pageVerify: pv } : r)),
+      )
+      const labels: Record<string, string> = {
+        verified: 'الصفحة مؤكدة ✓',
+        wrong_page: `الصفحة الصحيحة: ${pv.matchedPage}`,
+        not_found: 'الاقتباس غير موجود في الملف',
+        no_quote: 'لا يوجد اقتباس',
+      }
+      toast(labels[pv.status] || pv.status)
+    } catch {
+      toast.error('خطأ في الاتصال.')
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, pageVerifying: false } : r)))
+    }
+  }
+
+  const editQuote = (id: string, quote: string) => {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, quote } : r)))
+  }
+
   const stats = {
     total: rows.length,
     verified: rows.filter((r) => r.status === 'verified').length,
     mismatch: rows.filter((r) => r.status === 'author_mismatch' || r.status === 'not_found').length,
     partial: rows.filter((r) => r.status === 'partial').length,
     pending: rows.filter((r) => r.status === 'pending').length,
+    pagesVerified: rows.filter((r) => r.pageVerify?.status === 'verified').length,
   }
 
   return (
@@ -233,6 +280,11 @@ export default function Home() {
                         {stats.partial > 0 && (
                           <Badge className="bg-amber-100 text-amber-700 border-amber-200">{stats.partial} جزئي</Badge>
                         )}
+                        {stats.pagesVerified > 0 && (
+                          <Badge className="bg-teal-100 text-teal-700 border-teal-200 gap-1">
+                            <MapPin className="h-3 w-3" /> {stats.pagesVerified} صفحة مؤكدة
+                          </Badge>
+                        )}
                         {stats.pending > 0 && (
                           <Badge variant="outline" className="text-slate-500">{stats.pending} بانتظار</Badge>
                         )}
@@ -260,6 +312,8 @@ export default function Home() {
                       onVerify={verifyOne}
                       onSave={saveSource}
                       saving={savingId === row.id}
+                      onVerifyPage={verifyPage}
+                      onQuoteEdit={editQuote}
                     />
                   ))}
                 </div>
@@ -292,9 +346,9 @@ export default function Home() {
 function HowItWorks() {
   const steps = [
     { n: 1, t: 'الصق بحثك', d: 'ضع نص البحث مع التوثيقات داخل المتن أو الحواشي.' },
-    { n: 2, t: 'استخراج ذكي', d: 'يستخرج الذكاء الاصطناعي كل توثيق: المؤلف، السنة، العنوان، رقم الصفحة.' },
+    { n: 2, t: 'استخراج ذكي', d: 'يستخرج الذكاء الاصطناعي كل توثيق: المؤلف، السنة، العنوان، رقم الصفحة، والاقتباس.' },
     { n: 3, t: 'بحث في المكتبات', d: 'تُبحث كل توثيقة في Open Library وبحث الويب للتأكد من وجود الكتاب والمؤلف.' },
-    { n: 4, t: 'تقرير الموثوقية', d: 'تحصل على حالة كل توثيق: موثَّق / خطأ في المؤلف / غير موجود + روابط المصادر.' },
+    { n: 4, t: 'ارفع ملف المصدر', d: 'ارفع PDF أو Word للتحقق من رقم الصفحة فعلياً — الأداة تجد الاقتباس وتؤكد الصفحة الصحيحة.' },
   ]
   return (
     <Card className="border-dashed border-slate-300 bg-white/60">
@@ -320,17 +374,18 @@ function HowItWorks() {
 
 function InfoCard() {
   return (
-    <Card className="border-slate-200 shadow-sm bg-amber-50/40 border-amber-200">
+    <Card className="border-slate-200 shadow-sm bg-teal-50/40 border-teal-200">
       <CardContent className="pt-5">
-        <h3 className="font-semibold text-amber-900 mb-2 flex items-center gap-1.5">
-          <AlertTriangle className="h-4 w-4" />
-          ملاحظة مهمة
+        <h3 className="font-semibold text-teal-900 mb-2 flex items-center gap-1.5">
+          <MapPin className="h-4 w-4" />
+          التحقق من رقم الصفحة
         </h3>
-        <ul className="text-xs text-amber-800 space-y-1.5 leading-relaxed list-disc pr-4">
-          <li>الأداة تتحقق من وجود الكتاب والمؤلف والسنة في المكتبات الإلكترونية.</li>
-          <li>التحقق من <strong>رقم الصفحة</strong> يتطلب رفع ملف المصدر (PDF) لأن المكتبات لا تعرض نص الصفحات.</li>
-          <li>النتائج مساعدة وليست بديلاً عن المراجعة اليدوية النهائية للباحث.</li>
-          <li>تُحفظ بياناتك محلياً في قاعدة بيانات المشروع فقط.</li>
+        <ul className="text-xs text-teal-800 space-y-1.5 leading-relaxed list-disc pr-4">
+          <li>ارفع ملف المصدر (PDF أو Word .docx) لكل توثيق تريد التأكد من رقم صفحته.</li>
+          <li>الأداة تستخرج نص كل صفحة، ثم تبحث عن الاقتباس حرفياً وتحدد الصفحة الفعلية.</li>
+          <li>إن كانت الصفحة المذكورة خاطئة، تُعرض الصفحة الصحيحة مع نسبة التطابق والمقطع المطابق.</li>
+          <li>النص المقتبس قابل للتعديل يدوياً لضمان دقة المطابقة.</li>
+          <li>تُحفظ بياناتك محلياً فقط ولا تُرسل لأي جهة خارجية.</li>
         </ul>
       </CardContent>
     </Card>

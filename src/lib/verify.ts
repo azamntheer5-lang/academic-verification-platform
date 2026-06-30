@@ -118,3 +118,154 @@ export function classifyMatch(score: number, exact: boolean): {
   if (score >= 0.5) return { status: 'partial' }
   return { status: 'mismatch' }
 }
+
+// ── Page-number verification against extracted source pages ───────────────────
+
+export interface PageVerifyInput {
+  quote: string // the verbatim text claimed to appear on the page
+  claimedPage?: number | null // the page number the researcher claims
+  pages: { number: number; text: string }[] // pages extracted from the uploaded file
+}
+
+export interface PageVerifyResult {
+  status: 'verified' | 'wrong_page' | 'not_found' | 'no_quote'
+  confidence: number // 0..1
+  claimedPage: number | null
+  matchedPage: number | null // the page where the quote actually appears
+  matchScore: number // 0..1
+  exactMatch: boolean
+  snippet: string // the matching passage from the page
+  note: string
+  searchedPages: number
+  candidates: { page: number; score: number }[] // top matches
+}
+
+// Decide whether a page's text corresponds to a given "logical" page number.
+// Academic books often have front matter, so the PDF page index rarely equals
+// the printed page number. We try two strategies:
+//   (a) Look for the claimed page number printed inside the page text.
+//   (b) Fall back to matching the quote against every page and report the best.
+export function verifyPageNumber(input: PageVerifyInput): PageVerifyResult {
+  const { quote, claimedPage, pages } = input
+  const searchedPages = pages.length
+
+  if (!quote || !quote.trim()) {
+    return {
+      status: 'no_quote',
+      confidence: 0,
+      claimedPage: claimedPage ?? null,
+      matchedPage: null,
+      matchScore: 0,
+      exactMatch: false,
+      snippet: '',
+      note: 'لا يوجد نص مقتبس للتحقق منه. أدخل الاقتباس الحرفي المراد التحقق من صفحته.',
+      searchedPages,
+      candidates: [],
+    }
+  }
+
+  // Strategy A: find pages whose printed page-number (mentioned in text) equals claimedPage
+  let physicalPagesForClaimed: number[] = []
+  if (claimedPage) {
+    physicalPagesForClaimed = findPagesByPrintedNumber(pages, claimedPage)
+  }
+
+  // Score every page for the quote
+  const scored = pages
+    .map((p) => {
+      const { score, snippet } = bestWindowMatch(quote, p.text, 30)
+      const exact = score >= 0.999 || normalizeForMatch(p.text).includes(normalizeForMatch(quote))
+      return { page: p.number, score, snippet, exact }
+    })
+    .sort((a, b) => b.score - a.score)
+
+  const top = scored[0]
+  const candidates = scored.slice(0, 5).map((s) => ({ page: s.page, score: Math.round(s.score * 100) / 100 }))
+
+  if (!top || top.score < 0.35) {
+    return {
+      status: 'not_found',
+      confidence: 0.2,
+      claimedPage: claimedPage ?? null,
+      matchedPage: null,
+      matchScore: top ? top.score : 0,
+      exactMatch: false,
+      snippet: top ? top.snippet : '',
+      note: `لم يُعثر على الاقتباس في أي من صفحات الملف (${searchedPages} صفحة). تأكد أن الملف هو المصدر الصحيح وأن الاقتباس حرفي.`,
+      searchedPages,
+      candidates,
+    }
+  }
+
+  const exactMatch = top.exact || top.score >= 0.85
+  const matchedPage = top.page
+
+  // Did the researcher claim a page?
+  if (claimedPage) {
+    const claimedMatchesPhysical = physicalPagesForClaimed.includes(matchedPage)
+    const claimedEqualsMatched = claimedPage === matchedPage
+
+    if (claimedEqualsMatched || claimedMatchesPhysical) {
+      return {
+        status: 'verified',
+        confidence: Math.min(1, top.score),
+        claimedPage,
+        matchedPage,
+        matchScore: top.score,
+        exactMatch,
+        snippet: top.snippet,
+        note: exactMatch
+          ? `الاقتباس موجود حرفياً في الصفحة ${matchedPage} من الملف — مطابق لما ذكرته.`
+          : `الاقتباس موجود في الصفحة ${matchedPage} من الملف مع تطابق قوي (${Math.round(top.score * 100)}%) — مطابق للصفحة المذكورة.`,
+        searchedPages,
+        candidates,
+      }
+    }
+
+    // The quote was found, but on a different page
+    return {
+      status: 'wrong_page',
+      confidence: Math.min(1, top.score),
+      claimedPage,
+      matchedPage,
+      matchScore: top.score,
+      exactMatch,
+      snippet: top.snippet,
+      note: `الاقتباس موجود فعلاً في الملف، لكن في الصفحة ${matchedPage} لا الصفحة ${claimedPage} التي ذكرتها. الصفحة الصحيحة: ${matchedPage}.`,
+      searchedPages,
+      candidates,
+    }
+  }
+
+  // No page claimed by the researcher — just report where it was found
+  return {
+    status: 'verified',
+    confidence: Math.min(1, top.score),
+    claimedPage: null,
+    matchedPage,
+    matchScore: top.score,
+    exactMatch,
+    snippet: top.snippet,
+    note: exactMatch
+      ? `الاقتباس موجود حرفياً في الصفحة ${matchedPage} من الملف.`
+      : `الاقتباس موجود في الصفحة ${matchedPage} من الملف مع تطابق ${Math.round(top.score * 100)}%.`,
+    searchedPages,
+    candidates,
+  }
+}
+
+// Find pages that *contain* the printed page number as a token. Crude but
+// works for many academic books that print the page number in a header/footer.
+function findPagesByPrintedNumber(
+  pages: { number: number; text: string }[],
+  target: number,
+): number[] {
+  const out: number[] = []
+  for (const p of pages) {
+    const text = p.text || ''
+    // look for the number as a standalone token (not part of a year/figure)
+    const re = new RegExp(`(^|[^0-9])${target}([^0-9]|$)`)
+    if (re.test(text)) out.push(p.number)
+  }
+  return out
+}

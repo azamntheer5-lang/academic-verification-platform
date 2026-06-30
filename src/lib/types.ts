@@ -39,6 +39,9 @@ export interface CitationRow extends ExtractedCitation {
   status: VerifyStatus
   result?: VerifyResult
   verifying: boolean
+  pageVerify?: PageVerifyResult
+  sourceFileId?: string | null
+  pageVerifying?: boolean
 }
 
 export interface SavedSource {
@@ -60,4 +63,27 @@ export interface SavedSource {
   note?: string | null
   createdAt: string
   _count?: { citations: number; pages: number }
+}
+
+// Page-level verification result (from uploaded PDF/DOCX source file)
+export interface PageVerifyResult {
+  status: 'verified' | 'wrong_page' | 'not_found' | 'no_quote' | 'pending'
+  confidence: number
+  claimedPage: number | null
+  matchedPage: number | null
+  matchScore: number
+  exactMatch: boolean
+  snippet: string
+  note: string
+  searchedPages: number
+  candidates: { page: number; score: number }[]
+}
+
+// A source file uploaded and parsed into pages, kept in-memory per citation
+export interface SourceFile {
+  id: string
+  name: string
+  kind: 'pdf' | 'docx'
+  total: number
+  pages: { number: number; text: string }[]
 }
