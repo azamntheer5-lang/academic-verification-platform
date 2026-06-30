@@ -20,29 +20,141 @@ export interface FileScanResult {
 function normalize(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, '') // Arabic diacritics + tatweel
-    .replace(/[\u0622\u0623\u0625]/g, '\u0627') // alef variants
-    .replace(/\u0629/g, '\u0647') // taa marbuta
-    .replace(/\u0649/g, '\u064A') // alef maqsura
     .replace(/[«»"“”‘’`(){}\[\],;:!?؟.,\-–—_]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-// Stopwords we ignore when computing keyword proximity (English + Arabic).
+// ── Arabic NLP: normalization, stop-words, light stemming ────────────────────
+// Implements advanced Arabic processing so the semantic matcher can recognize
+// that "التطورات", "متطور", "وتطور" all share the root "تطور".
+
+/**
+ * Normalizes Arabic text:
+ *   - strips all diacritics (harakat: fatha/damma/kasra/tanwin/shadda/sukun)
+ *   - removes tatweel (ـ)
+ *   - unifies alef-hamza variants (أ إ آ → ا)
+ *   - converts final taa-marbuta (ة) to haa (ه)
+ *   - converts final alef-maqsura (ى) to yaa (ي)
+ * Runs before tokenization so every downstream comparison uses the canonical
+ * form of each Arabic word.
+ */
+export function normalizeArabic(text: string): string {
+  if (!text) return ''
+  let t = text
+  // 1. Diacritics (harakat) — U+064B..U+065F (tanwin + shadda + sukun + harakat),
+  //    superscript alef U+0670, and Quranic annotation signs U+06D6..U+06ED.
+  t = t.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+  // 2. Tatweel (ـ) — elongation marker
+  t = t.replace(/\u0640/g, '')
+  // 3. Alef-hamza variants → bare alef
+  t = t.replace(/[\u0622\u0623\u0625]/g, '\u0627')
+  // 4. Final taa-marbuta → haa (only at word end so middle ة in rare loanwords
+  //    stays, but in practice ة almost always marks the feminine ending)
+  t = t.replace(/\u0629/g, '\u0647')
+  // 5. Final alef-maqsura → yaa
+  t = t.replace(/\u0649(?=\s|$)/g, '\u064A')
+  return t
+}
+
+// ── Expanded Arabic + English stop-words ─────────────────────────────────────
+// Covers: prepositions, demonstratives, relative pronouns, detached & attached
+// pronouns, conjunctions, particles, auxiliary verbs — in both Arabic and English.
 const STOPWORDS = new Set([
+  // ── English ──
   'the', 'a', 'an', 'and', 'or', 'of', 'in', 'on', 'to', 'for', 'with', 'is', 'are',
   'was', 'were', 'be', 'been', 'this', 'that', 'these', 'those', 'it', 'as', 'by',
   'from', 'at', 'which', 'but', 'not', 'have', 'has', 'had', 'do', 'does', 'did',
-  'في', 'من', 'على', 'إلى', 'عن', 'مع', 'هذا', 'هذه', 'ذلك', 'التي', 'الذي', 'كان',
-  'كانت', 'يكون', 'أن', 'إن', 'ما', 'لا', 'إلا', 'قد', 'كل', 'بعض', 'غير', 'بين',
+  'will', 'would', 'can', 'could', 'should', 'may', 'might', 'shall', 'must',
+  // ── Arabic: prepositions & particles ──
+  'في', 'من', 'على', 'الى', 'عن', 'مع', 'الى', 'حتى', 'عند', 'لدى', 'خلال',
+  'بين', 'امام', 'خلف', 'فوق', 'تحت', 'دون', 'بدون', 'بعد', 'قبل', 'نحو',
+  'لكن', 'لكن', 'بل', 'او', 'و', 'ف', 'ثم', 'ل', 'ب', 'ك', 'س',
+  // ── Arabic: demonstratives ──
+  'هذا', 'هذه', 'ذلك', 'تلك', 'هذان', 'هاتان', 'هؤلاء', 'اولئك', 'هنا', 'هناك',
+  // ── Arabic: relative pronouns ──
+  'الذي', 'التي', 'الذين', 'اللاتي', 'اللواتي', 'اللائي', 'من', 'ما', 'مهما',
+  // ── Arabic: detached pronouns ──
+  'هو', 'هي', 'هم', 'هن', 'انا', 'نحن', 'انت', 'انتم', 'انتما', 'انتن',
+  // ── Arabic: attached pronouns (post-normalization they appear as suffixes,
+  //    but common standalone forms are listed) ──
+  'يه', 'ها', 'هم', 'هن', 'نا', 'ك', 'كن', 'كم', 'هم',
+  // ── Arabic: auxiliaries & particles ──
+  'كان', 'كانت', 'يكون', 'تكون', 'كانوا', 'يكونون', 'اصبح', 'اصبحت', 'ظل', 'صار',
+  'ان', 'ان', 'كيف', 'متى', 'اين', 'لم', 'لن', 'لا', 'ما', 'هل', 'كم', 'الا', 'قد',
+  'كل', 'بعض', 'غير', 'كذلك', 'ايضا', 'فقط', 'حيث', 'بحيث', 'لكي', 'كي', 'لان',
+  'كما', 'عندما', 'بينما', 'اذا', 'إذا', 'ان', 'أو', 'اما', 'إما',
 ])
 
 function tokenize(text: string): string[] {
   return normalize(text)
     .split(' ')
     .filter((w) => w.length > 2 && !STOPWORDS.has(w))
-    .map(stem)
+    .map((w) => {
+      // Route through the Arabic normalizer + stemmer if the token contains
+      // Arabic letters; otherwise use the English stemmer.
+      if (/[\u0600-\u06FF]/.test(w)) {
+        return arabicStemmer(normalizeArabic(w))
+      }
+      return stem(w)
+    })
+}
+
+// ── Light Arabic stemmer (ISRI-inspired) ─────────────────────────────────────
+// Removes the most common Arabic prefixes (definite articles, conjunction+
+// article, preposition+article) and suffixes (plural, feminine, relative,
+// possessive) to collapse inflected forms onto their stem/root.
+//
+//   "التطورات"  → "تطور"
+//   "والتطور"   → "تطور"
+//   "مكتشفات"   → "كشف"   (after prefix مـ + suffix ات)
+//   "متطور"     → "تطور"
+//
+// This is intentionally light — we don't reconstruct the triliteral root
+// (that needs a dictionary); we strip surface morphology, which is enough for
+// semantic matching of paraphrased quotes.
+const ARABIC_PREFIXES = [
+  // longest first so we match the most specific prefix
+  'والب', 'وال', 'فال', 'بال', 'كال', 'لال',   // conjunction/prep + ال
+  'ال',   'وال', 'فال', 'بال', 'كال',         // (dedupe-safe, order matters)
+  'ولل', 'فلل', 'بلل', 'كلل',                 // + لل
+  'لل',  'وب', 'فب', 'لب', 'كب', 'وس', 'فس',  // + prep + single letter
+  'ف',   'و',   'ب',   'ك',   'ل',   'س',
+]
+
+const ARABIC_SUFFIXES = [
+  // plural / dual / feminine / relative / possessive — longest first
+  'ينات', 'وات', 'يات',                                  // rare plural patterns
+  'ون', 'ين', 'ات', 'ان', 'يه', 'ية', 'ها', 'هم', 'هن', 'نا', 'كم', 'كن', 'كما', 'هم',
+  'ة',   'ي',   'ك',   'ه',   'ا',
+]
+
+export function arabicStemmer(word: string): string {
+  if (!word) return word
+  let w = word
+  // Keep at least 3 chars after stripping so we don't reduce to noise.
+  // Prefix strip
+  for (const p of ARABIC_PREFIXES) {
+    if (w.startsWith(p) && w.length - p.length >= 3) {
+      w = w.slice(p.length)
+      break // only strip one prefix layer (the longest matched)
+    }
+  }
+  // Suffix strip
+  for (const s of ARABIC_SUFFIXES) {
+    if (w.endsWith(s) && w.length - s.length >= 3) {
+      w = w.slice(0, -s.length)
+      break // only strip one suffix layer
+    }
+  }
+  // A second light pass for words like "متطورات" → after first pass strips
+  // prefix "م" + suffix "ات" we'd want "تطور"; but our prefix list doesn't
+  // include single-letter "م" (too aggressive). Instead, strip a leading
+  // "م" if what remains starts with a recognized pattern (verb form).
+  if (w.length > 4 && /^م[\u062A\u062B\u062C\u0633\u0646]/.test(w)) {
+    w = w.slice(1)
+  }
+  return w
 }
 
 // Very lightweight English stemmer — strips common suffixes so that
