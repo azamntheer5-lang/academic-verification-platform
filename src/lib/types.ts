@@ -42,6 +42,9 @@ export interface CitationRow extends ExtractedCitation {
   pageVerify?: PageVerifyResult
   sourceFileId?: string | null
   pageVerifying?: boolean
+  semanticMode?: boolean
+  contextCheck?: ContextCheckResult
+  contextChecking?: boolean
 }
 
 export interface SavedSource {
@@ -110,3 +113,29 @@ export interface SourceFile {
   total: number
   pages: { number: number; text: string }[]
 }
+
+// Contextual integrity check (feature 4)
+export interface ContextCheckResult {
+  faithful: boolean
+  severity: 'ok' | 'warning' | 'critical'
+  note: string
+  authorIntent: string
+}
+
+// Hallucination scan result (feature 3)
+export interface HallucinationItem {
+  ref: ExtractedCitation
+  status: 'verified' | 'author_mismatch' | 'not_found' | 'partial' | 'error'
+  confidence: number
+  authorMatch: boolean
+  titleMatch: boolean
+  yearPlausible: boolean
+  note: string
+  bestHit: LibraryHit | null
+  allHits: LibraryHit[]
+  flagged: boolean
+  suggestions: { title: string; authors: string[]; year: string | null; url: string; source: string }[]
+}
+
+// Export formats (feature 5)
+export type ExportFormat = 'bibtex' | 'ris'

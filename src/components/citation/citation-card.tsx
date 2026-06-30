@@ -23,9 +23,15 @@ import {
   ShieldCheck,
   Copy,
   Check,
+  Brain,
+  Languages,
+  ShieldAlert,
+  Download,
+  Input as InputIcon,
 } from 'lucide-react'
 import { StatusBadge, VerifyingBadge } from './status-badge'
-import type { CitationRow, LibraryHit, PageVerifyResult } from '@/lib/types'
+import { Input } from '@/components/ui/input'
+import type { CitationRow, LibraryHit, PageVerifyResult, ContextCheckResult } from '@/lib/types'
 
 interface Props {
   row: CitationRow
@@ -35,6 +41,9 @@ interface Props {
   saving?: boolean
   onVerifyPage: (id: string, file: File, quote: string, claimedPage: number | null) => void
   onQuoteEdit: (id: string, quote: string) => void
+  onToggleSemantic: (id: string) => void
+  onCheckContext: (id: string, file: File, quote: string, researcherClaim: string) => void
+  onExport: (row: CitationRow, format: 'bibtex' | 'ris') => void
 }
 
 function HitCard({ hit }: { hit: LibraryHit }) {
@@ -79,16 +88,23 @@ export function CitationCard({
   saving,
   onVerifyPage,
   onQuoteEdit,
+  onToggleSemantic,
+  onCheckContext,
+  onExport,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [lastFile, setLastFile] = useState<File | null>(null)
   const [editingQuote, setEditingQuote] = useState(false)
   const [quoteDraft, setQuoteDraft] = useState(row.quote || '')
+  const [showContextInput, setShowContextInput] = useState(false)
+  const [researcherClaim, setResearcherClaim] = useState('')
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (f) {
       setFileName(f.name)
+      setLastFile(f)
       onVerifyPage(row.id, f, row.quote || '', row.page ?? null)
     }
   }
@@ -98,6 +114,7 @@ export function CitationCard({
     const f = e.dataTransfer.files?.[0]
     if (f) {
       setFileName(f.name)
+      setLastFile(f)
       onVerifyPage(row.id, f, row.quote || '', row.page ?? null)
     }
   }
@@ -250,6 +267,41 @@ export function CitationCard({
           </>
         )}
 
+        {/* Contextual integrity check result (feature 4) */}
+        {row.contextCheck && (
+          <ContextCheckSection cc={row.contextCheck} />
+        )}
+        {showContextInput && lastFile && (
+          <div className="rounded-md border border-amber-300 bg-amber-50/60 px-3 py-2 space-y-2">
+            <p className="text-xs font-medium text-amber-800 flex items-center gap-1">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              فحص السياق: ما هو الادعاء الذي تريد إثباته بهذا الاقتباس؟ (اختياري)
+            </p>
+            <Input
+              value={researcherClaim}
+              onChange={(e) => setResearcherClaim(e.target.value)}
+              placeholder="مثال: أريد إثبات أن التعلم العميق فعال في التشخيص الطبي"
+              dir="rtl"
+              className="text-sm bg-white"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  onCheckContext(row.id, lastFile, row.quote || '', researcherClaim)
+                  setShowContextInput(false)
+                }}
+                disabled={!row.quote?.trim()}
+              >
+                ابدأ فحص السياق
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setShowContextInput(false)}>
+                إلغاء
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Upload zone + action buttons */}
         <div className="space-y-2 pt-1">
           <div
@@ -306,6 +358,56 @@ export function CitationCard({
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               احفظ في مكتبتي
             </Button>
+            {/* M1: semantic (paraphrase) matching toggle */}
+            <Button
+              size="sm"
+              variant={row.semanticMode ? 'default' : 'outline'}
+              onClick={() => onToggleSemantic(row.id)}
+              className={`gap-1.5 ${row.semanticMode ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'border-violet-300 text-violet-700 hover:bg-violet-50'}`}
+              title="مطابقة بالمعنى — لإعادة الصياغة (Paraphrasing)"
+            >
+              <Brain className="h-4 w-4" />
+              {row.semanticMode ? 'المطابقة الدلالية مفعّلة' : 'مطابقة بالمعنى'}
+            </Button>
+            {/* M4: contextual integrity check */}
+            {lastFile && row.quote && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowContextInput((v) => !v)}
+                disabled={row.contextChecking}
+                className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50"
+                title="فحص السياق — هل المؤلف يقصد فعلاً ما نسبته إليه؟"
+              >
+                {row.contextChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                {row.contextChecking ? 'فاحص السياق…' : 'فحص السياق'}
+              </Button>
+            )}
+            {/* M5: export to RIS / BibTeX */}
+            {row.result && (
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onExport(row, 'bibtex')}
+                  className="gap-1 text-slate-600 hover:text-slate-900"
+                  title="تصدير BibTeX لـ Zotero/EndNote/Mendeley"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  BibTeX
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onExport(row, 'ris')}
+                  className="gap-1 text-slate-600 hover:text-slate-900"
+                  title="تصدير RIS لـ Zotero/EndNote/Mendeley"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  RIS
+                </Button>
+              </div>
+            )}
             {fileName && !row.pageVerifying && (
               <span className="text-xs text-slate-500 flex items-center gap-1">
                 <FileText className="h-3.5 w-3.5" />
@@ -524,6 +626,39 @@ function FBMeta({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-violet-500">{label}</p>
       <p className="text-slate-800 truncate" title={value}>{value}</p>
+    </div>
+  )
+}
+
+function ContextCheckSection({ cc }: { cc: ContextCheckResult }) {
+  const tone =
+    cc.severity === 'ok'
+      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+      : cc.severity === 'warning'
+        ? 'bg-amber-50 border-amber-300 text-amber-900'
+        : 'bg-red-50 border-red-300 text-red-900'
+  const icon = cc.severity === 'ok' ? <ShieldCheck className="h-4 w-4" /> : <ShieldAlert className="h-4 w-4" />
+  const title =
+    cc.severity === 'ok'
+      ? 'السياق سليم ✓'
+      : cc.severity === 'warning'
+        ? 'تحذير: اقتطاع مشبوه'
+        : 'تنبيه حرج: الاقتباس ملتوي!'
+  return (
+    <div className={`rounded-md border-2 px-3 py-2 space-y-2 ${tone}`}>
+      <div className="flex items-center gap-1.5">
+        {icon}
+        <p className="text-sm font-bold">{title}</p>
+      </div>
+      {cc.authorIntent && (
+        <div className="text-xs bg-white/60 border border-current/20 rounded px-2 py-1">
+          <span className="font-medium">نية المؤلف الأصلية: </span>
+          <span>{cc.authorIntent}</span>
+        </div>
+      )}
+      <p className="text-sm leading-relaxed bg-white/60 border border-current/20 rounded px-2 py-1.5">
+        {cc.note}
+      </p>
     </div>
   )
 }

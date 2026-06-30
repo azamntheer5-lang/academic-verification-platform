@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyPageNumber } from '@/lib/verify'
+import { verifyPageNumber, extractPrintedPageNumber } from '@/lib/verify'
 import type { PageVerifyResult as LibPageVerifyResult } from '@/lib/verify'
 import { findCitationOnWeb } from '@/lib/library'
+import { semanticScanPages } from '@/lib/semantic'
 
 // POST multipart/form-data with fields:
 //   file: File (pdf or docx)          — required
@@ -95,11 +96,53 @@ export async function POST(req: NextRequest) {
     }
 
     const pages = extractJson.pages
+    const semanticMode = String(form.get('semantic') || '') === 'true'
     const result: LibPageVerifyResult = verifyPageNumber({ quote, claimedPage, pages })
 
+    // ── Semantic (paraphrase) matching ──────────────────────────────────────
+    // When the exact/fuzzy text match fails, the quote may be a paraphrase.
+    // We ask the LLM to compare the quote's *meaning* against the top candidate
+    // pages. This runs both in explicit semantic mode and as a fallback when
+    // the textual match returns not_found.
+    if ((semanticMode || result.status === 'not_found') && result.candidates.length > 0) {
+      try {
+        const ranked = result.candidates.map((c) => ({ page: c.page, score: c.score }))
+        const sem = await semanticScanPages(quote, pages, ranked, semanticMode ? 6 : 4)
+        if (sem) {
+          const printedReal = pages.find((p) => p.number === sem.page)?.text
+          // re-evaluate the "real" printed page number for the semantically matched page
+          const printed = extractPrintedPageNumber(printedReal || '')
+          const realPage = printed ?? sem.page
+          const exactMatch = sem.result.confidence >= 0.85
+          result.status = claimedPage
+            ? claimedPage === realPage || claimedPage === sem.page
+              ? 'verified'
+              : 'wrong_page'
+            : 'verified'
+          result.matchedPage = sem.page
+          result.realPage = realPage
+          result.matchScore = sem.result.confidence
+          result.exactMatch = exactMatch
+          result.snippet = sem.result.matchedSnippet || sem.result.reason
+          result.confidence = sem.result.confidence
+          if (result.status === 'verified') {
+            result.note =
+              realPage !== sem.page
+                ? `مطابقة دلالية: النص في الصفحة المطبوعة ${realPage} (داخل الملف ص ${sem.page}) يحمل نفس معنى اقتباسك. ثقة ${Math.round(sem.result.confidence * 100)}%. ${sem.result.reason}`
+                : `مطابقة دلالية: النص في الصفحة ${realPage} يحمل نفس معنى اقتباسك (إعادة صياغة). ثقة ${Math.round(sem.result.confidence * 100)}%. ${sem.result.reason}`
+          } else {
+            result.note = `الاقتباس (بالمعنى) موجود في الصفحة المطبوعة ${realPage} لا الصفحة ${claimedPage}. ثقة ${Math.round(sem.result.confidence * 100)}%. ${sem.result.reason}`
+          }
+        }
+      } catch {
+        /* semantic failed, fall through to web fallback */
+      }
+    }
+
     // ── Autonomous web fallback ─────────────────────────────────────────────
-    // When the quote was not located in the uploaded file, the system "flies"
-    // the quote + author to global libraries and returns a verified citation.
+    // When the quote was STILL not located (even after semantic), the system
+    // "flies" the quote + author to global libraries and returns a verified
+    // citation. Cross-lingual translation runs inside findCitationOnWeb.
     if (result.status === 'not_found' && author) {
       try {
         const fallback = await findCitationOnWeb(quote, author)

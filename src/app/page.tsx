@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Loader2, Sparkles, ScanSearch, FileCheck2, AlertTriangle, BookOpenCheck, MapPin } from 'lucide-react'
+import { Loader2, Sparkles, ScanSearch, FileCheck2, AlertTriangle, BookOpenCheck, MapPin, ShieldAlert, Download, Languages, Brain } from 'lucide-react'
 import { toast } from 'sonner'
 import { CitationCard } from '@/components/citation/citation-card'
 import { SourcesPanel } from '@/components/citation/sources-panel'
-import type { CitationRow, ExtractedCitation, VerifyResult, PageVerifyResult } from '@/lib/types'
+import type { CitationRow, ExtractedCitation, VerifyResult, PageVerifyResult, HallucinationItem, ContextCheckResult } from '@/lib/types'
+import { toBibTeX, toRIS, downloadFile, type ExportSource } from '@/lib/export'
 
 const SAMPLE = `يُعدّ التعلم العميق أحد فروع الذكاء الاصطناعي التي حققت تقدماً ملحوظاً في السنوات الأخيرة. فقد أشار (لوديتش، 2016، ص 45) إلى أن الشبكات العصبية الاصطناعية قادرة على تمثيل دوال معقدة بدقة عالية. كما يؤكد بيرسون (Pearson, 2019, p. 112) أن المعالجة الموزعة تُحسّن من كفاءة التدريب بشكل كبير.
 
@@ -22,6 +23,8 @@ export default function Home() {
   const [extracting, setExtracting] = useState(false)
   const [globalVerifying, setGlobalVerifying] = useState(false)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [halluScanning, setHalluScanning] = useState(false)
+  const [halluResults, setHalluResults] = useState<HallucinationItem[] | null>(null)
 
   const extract = async () => {
     if (!text.trim()) {
@@ -150,6 +153,7 @@ export default function Home() {
     }
     const row = rows.find((r) => r.id === id)
     const author = row?.author || ''
+    const semanticMode = row?.semanticMode || false
     setRows((rs) =>
       rs.map((r) => (r.id === id ? { ...r, pageVerifying: true } : r)),
     )
@@ -159,6 +163,7 @@ export default function Home() {
       form.append('quote', quote)
       form.append('claimedPage', claimedPage === null ? '' : String(claimedPage))
       form.append('author', author)
+      if (semanticMode) form.append('semantic', 'true')
       const res = await fetch('/api/research/verify-page', { method: 'POST', body: form })
       const data = await res.json()
       if (!data.ok) {
@@ -185,6 +190,98 @@ export default function Home() {
 
   const editQuote = (id: string, quote: string) => {
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, quote } : r)))
+  }
+
+  const toggleSemantic = (id: string) => {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, semanticMode: !r.semanticMode } : r)))
+  }
+
+  const checkContext = async (id: string, file: File, quote: string, researcherClaim: string) => {
+    if (!quote.trim()) {
+      toast.error('الاقتباس مطلوب لفحص السياق.')
+      return
+    }
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, contextChecking: true } : r)))
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('quote', quote)
+      form.append('researcherClaim', researcherClaim)
+      const res = await fetch('/api/research/context-check', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'تعذّر فحص السياق.')
+        setRows((rs) => rs.map((r) => (r.id === id ? { ...r, contextChecking: false } : r)))
+        return
+      }
+      const cc = data.result as ContextCheckResult
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, contextChecking: false, contextCheck: cc } : r)))
+      const labels: Record<string, string> = {
+        ok: 'السياق سليم ✓',
+        warning: 'تحذير: اقتطاع مشبوه',
+        critical: 'تنبيه: الاقتباس ملتوي!',
+      }
+      toast(labels[cc.severity] || cc.severity)
+    } catch {
+      toast.error('خطأ في الاتصال.')
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, contextChecking: false } : r)))
+    }
+  }
+
+  const runHallucinationScan = async () => {
+    if (rows.length === 0) {
+      toast.error('استخرج التوثيقات أولاً.')
+      return
+    }
+    setHalluScanning(true)
+    setHalluResults(null)
+    try {
+      const refs: ExtractedCitation[] = rows.map((r) => ({
+        id: r.id,
+        author: r.author,
+        year: r.year,
+        title: r.title,
+        page: r.page ?? null,
+        quote: r.quote,
+        context: r.context,
+      }))
+      const res = await fetch('/api/research/hallucination-scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ references: refs }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'تعذّر فحص الهلوسة.')
+        return
+      }
+      setHalluResults(data.results as HallucinationItem[])
+      const flagged = data.results.filter((r: HallucinationItem) => r.flagged).length
+      toast.success(`اكتمل الفحص: ${flagged} مرجع مشبوه من أصل ${data.results.length}.`)
+    } catch {
+      toast.error('خطأ في الاتصال.')
+    } finally {
+      setHalluScanning(false)
+    }
+  }
+
+  const exportSource = (row: CitationRow, format: 'bibtex' | 'ris') => {
+    const src: ExportSource = {
+      type: row.title ? 'book' : 'other',
+      title: row.title || `مرجع ${row.author} ${row.year}`.trim(),
+      authors: row.author || 'غير معروف',
+      year: row.year || 'بلا تاريخ',
+      publisher: row.result?.bestHit?.publisher || null,
+      url: row.result?.bestHit?.url || null,
+      pagesRange: row.page ? String(row.page) : null,
+      isbn: row.result?.bestHit?.isbn || null,
+      note: row.result?.note || null,
+    }
+    const content = format === 'ris' ? toRIS(src) : toBibTeX(src)
+    const ext = format === 'ris' ? 'ris' : 'bib'
+    const fname = `reference-${(row.author || 'ref').split(/\s+/)[0].toLowerCase()}.${ext}`
+    downloadFile(fname, content, format === 'ris' ? 'application/x-research-info-systems' : 'application/x-bibtex')
+    toast.success(`نُزّل ملف ${format === 'ris' ? 'RIS' : 'BibTeX'} — استورده في Zotero/EndNote/Mendeley.`)
   }
 
   const stats = {
@@ -292,19 +389,35 @@ export default function Home() {
                           <Badge variant="outline" className="text-slate-500">{stats.pending} بانتظار</Badge>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={verifyAll}
-                        disabled={globalVerifying || rows.every((r) => r.verifying)}
-                        className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                      >
-                        {globalVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
-                        تحقّق من الكل
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={verifyAll}
+                          disabled={globalVerifying || rows.every((r) => r.verifying)}
+                          className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                        >
+                          {globalVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+                          تحقّق من الكل
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={runHallucinationScan}
+                          disabled={halluScanning}
+                          className="gap-1.5 border-rose-300 text-rose-700 hover:bg-rose-50"
+                        >
+                          {halluScanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                          فحص الهلوسة الأكاديمية
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {halluResults && (
+                  <HallucinationPanel results={halluResults} scanning={halluScanning} />
+                )}
 
                 <div className="space-y-3">
                   {rows.map((row, i) => (
@@ -317,6 +430,9 @@ export default function Home() {
                       saving={savingId === row.id}
                       onVerifyPage={verifyPage}
                       onQuoteEdit={editQuote}
+                      onToggleSemantic={toggleSemantic}
+                      onCheckContext={checkContext}
+                      onExport={exportSource}
                     />
                   ))}
                 </div>
@@ -390,6 +506,84 @@ function InfoCard() {
           <li>النص المقتبس قابل للتعديل يدوياً لضمان دقة المطابقة.</li>
           <li>تُحفظ بياناتك محلياً فقط ولا تُرسل لأي جهة خارجية.</li>
         </ul>
+      </CardContent>
+    </Card>
+  )
+}
+
+function HallucinationPanel({ results, scanning }: { results: HallucinationItem[]; scanning: boolean }) {
+  const flagged = results.filter((r) => r.flagged)
+  const clean = results.filter((r) => !r.flagged)
+  if (scanning && results.length === 0) return null
+  return (
+    <Card className="border-rose-200 shadow-sm bg-rose-50/40">
+      <CardContent className="pt-5 space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-bold text-rose-900 flex items-center gap-1.5">
+            <ShieldAlert className="h-5 w-5" />
+            تقرير فحص الهلوسة الأكاديمية
+          </h3>
+          <div className="flex items-center gap-2 text-xs">
+            <Badge className="bg-rose-200 text-rose-900 border-rose-300">{flagged.length} مشبوه</Badge>
+            <Badge className="bg-emerald-200 text-emerald-900 border-emerald-300">{clean.length} سليم</Badge>
+            <Badge variant="outline">{results.length} إجمالي</Badge>
+          </div>
+        </div>
+        {flagged.length === 0 ? (
+          <p className="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-3 py-2">
+            ✅ ممتاز! جميع المراجع موجودة فعلاً في المكتبات الإلكترونية. لا توجد مراجع وهمية مخترعة.
+          </p>
+        ) : (
+          <p className="text-sm text-rose-800 bg-white/60 border border-rose-200 rounded px-3 py-2">
+            ⚠️ تم رصد {flagged.length} مرجع مشبوه (غير موجود أو منسوب لمؤلف خاطئ). راجعها أدناه واستبدلها بالبدائل الحقيقية المقترحة.
+          </p>
+        )}
+        <div className="space-y-2">
+          {results.map((r, i) => (
+            <div
+              key={i}
+              className={`rounded-md border px-3 py-2 ${r.flagged ? 'border-rose-300 bg-white/70' : 'border-emerald-200 bg-emerald-50/40'}`}
+            >
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <div className="min-w-0">
+                  <p className="font-medium text-slate-900 truncate">
+                    {r.ref.author || 'بدون مؤلف'}
+                    {r.ref.year && <span className="text-slate-500 font-normal"> · {r.ref.year}</span>}
+                    {r.ref.title && <span className="text-slate-600 italic"> · «{r.ref.title}»</span>}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-0.5">{r.note}</p>
+                </div>
+                <Badge
+                  className={
+                    r.flagged
+                      ? 'bg-rose-200 text-rose-900 border-rose-300'
+                      : 'bg-emerald-200 text-emerald-900 border-emerald-300'
+                  }
+                >
+                  {r.flagged ? 'وهمي/مشبوه' : 'موجود فعلاً ✓'}
+                </Badge>
+              </div>
+              {r.flagged && r.suggestions.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-rose-200">
+                  <p className="text-xs font-medium text-rose-800 mb-1">💡 مراجع حقيقية بديلة:</p>
+                  <div className="space-y-1">
+                    {r.suggestions.map((s, j) => (
+                      <a
+                        key={j}
+                        href={s.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-xs text-violet-700 hover:text-violet-900 underline truncate"
+                      >
+                        • «{s.title}»{s.authors.length ? ` — ${s.authors.join('، ')}` : ''}{s.year ? ` (${s.year})` : ''}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   )

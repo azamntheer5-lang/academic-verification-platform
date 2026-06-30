@@ -371,14 +371,37 @@ export async function findCitationOnWeb(
     return emptyFallback(quote, author)
   }
 
-  // 1. Web search for the exact quote + author
-  const shortQuote = q.length > 120 ? q.slice(0, 120) + '…' : q
-  const [quoteHits, olHits] = await Promise.all([
-    webSearchResults(`"${shortQuote}" ${author}`),
-    searchOpenLibrary(`${author} ${shortQuote.split(' ').slice(0, 6).join(' ')}`),
-  ])
+  // 0. Cross-lingual: if the quote is Arabic, translate to English so we can
+  // search the global libraries where the original foreign book actually
+  // lives. We search BOTH the original and the translated version.
+  const { translateForSearch, detectLang } = await import('./translate')
+  const sourceLang = detectLang(q)
+  let searchVariants: { text: string; lang: string }[] = [{ text: q, lang: sourceLang }]
+  if (sourceLang === 'ar') {
+    try {
+      const t = await translateForSearch(q, 'en')
+      if (t.translated && t.translated.trim() && t.translated !== q) {
+        searchVariants.push({ text: t.translated, lang: 'en' })
+      }
+    } catch {
+      /* ignore translation failure */
+    }
+  }
 
-  const all = dedupe([...quoteHits, ...olHits])
+  // 1. Web search for each variant (exact quote + author). Union the hits.
+  const allRaw: LibraryHit[] = []
+  const olQueries: string[] = []
+  await Promise.all(
+    searchVariants.map(async (v) => {
+      const shortQuote = v.text.length > 120 ? v.text.slice(0, 120) + '…' : v.text
+      const hits = await webSearchResults(`"${shortQuote}" ${author}`)
+      allRaw.push(...hits)
+      olQueries.push(`${author} ${v.text.split(' ').slice(0, 6).join(' ')}`)
+    }),
+  )
+  const olHits = await searchOpenLibrary(olQueries[0] || `${author} ${q.slice(0, 60)}`)
+
+  const all = dedupe([...allRaw, ...olHits])
   if (all.length === 0) {
     return {
       ...emptyFallback(quote, author),

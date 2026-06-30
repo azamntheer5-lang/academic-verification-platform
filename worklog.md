@@ -77,3 +77,33 @@ Stage Summary:
 - الطبقة 2 (التصحيح): عند wrong_page، يعرض realPage الصحيح المطبوع في الكتاب.
 - الطبقة 3 (البديل العالمي): عند not_found، يطير بالاقتباس+المؤلف للمكتبات العالمية ويجلب المرجع + التوثيق الجاهز APA/MLA — الباحث لا يخرج أبداً بدون إجابة.
 - ملفات محدّثة: src/lib/verify.ts, src/lib/library.ts, src/lib/types.ts, src/app/api/research/verify-page/route.ts, src/components/citation/citation-card.tsx, src/app/page.tsx.
+
+---
+Task ID: 5-features
+Agent: main
+Task: إضافة الميزات الـ 5 الثورية: (1) المطابقة الدلالية/إعادة الصياغة، (2) التحقق عابر اللغات، (3) فلتر الهلوسة الأكاديمية، (4) كاشف التناقض السياقي، (5) التصدير RIS/BibTeX لـ Zotero/EndNote/Mendeley.
+
+Work Log:
+- M1: بنيت src/lib/semantic.ts: semanticMatchQuote() و semanticScanPages() تستخدمان LLM لمقارنة معنى الاقتباس بنص الصفحة (ليس الكلمات). تُرجع isMatch/confidence/reason/matchedSnippet.
+- M2: بنيت src/lib/translate.ts: translateForSearch() + detectLang() تترجم الاقتباس العربي لإنجليزي قبل البحث في المكتبات العالمية. حدّثت findCitationOnWeb في library.ts لتبحث بنسختين (الأصلية + المترجمة).
+- M3: بنيت POST /api/research/hallucination-scan: يأخذ قائمة مراجع، يتحقق من كل واحد في Open Library + web search، يعزل المflagged (not_found/author_mismatch)، يقترح بدائل حقيقية من نتائج البحث.
+- M4: بنيت POST /api/research/context-check (multipart): يستخرج الصفحة الحاوية للاقتباس + الصفحة قبلها + بعدها، يرسلها للـ LLM ليفحص هل المؤلف يدعم الفكرة أم يعارضها/يسخر منها. يعيد faithful/severity(ok/warning/critical)/authorIntent/note.
+- M5: بنيت src/lib/export.ts: toBibTeX() + toRIS() + downloadFile() بتنسيق صحيح لكل نوع مصدر (book/article/web/thesis) مع escape وحفظ أسماء المؤلفين. بنيت POST /api/research/export.
+- حدّثت verify-page route: يقرأ semantic flag، يشغّل semanticScanPages على أفضل الصفحات عند not_found أو semantic mode، يحدّث realPage/snippet/note.
+- حدّثت types.ts: أضفت ContextCheckResult, HallucinationItem, ExportFormat, حقول semanticMode/contextCheck/contextChecking على CitationRow.
+- حدّثت page.tsx: toggleSemantic, checkContext, runHallucinationScan, exportSource handlers + HallucinationPanel component + زر "فحص الهلوسة الأكاديمية" في شريط الإحصائيات + استيراد toBibTeX/toRIS/downloadFile.
+- حدّثت citation-card.tsx: زر "مطابقة بالمعنى" (toggle بنفسجي)، زر "فحص السياق" (يفتح input لادعاء الباحث)، زري BibTeX/RIS للتصدير، ContextCheckSection component، احتفاظ lastFile لإعادة استخدامه في فحص السياق.
+- lint نظيف (0 أخطاء).
+- تحققت بـ curl لكل ميزة:
+  • M1: اقتباس معاد صياغته "neural networks can represent highly complicated functions with great precision" → مطابقة دلالية 100% في الصفحة 1 ✓
+  • M2: اقتباس عربي "الإدمانات الثلاثة الأكثر ضرراً..." → تُرجم → عثر عليه في tradingarabic.com مع المؤلف Nassim Taleb ✓
+  • M3: Taleb 2010 The Black Swan → partial (سنة مختلفة)، Alfakhri 2099 وهمي → flagged ✓
+  • M4: "Big data requires flexible infrastructure" → faithful:true, severity:ok, نية المؤلف: تأكيد ضرورة البنية التحتية المرنة ✓
+  • M5: BibTeX و RIS يُولّدان بصيغة صحيحة (TY/AU/PY/TI/PB/ER و @book{...}) ✓
+- تحققت عبر Agent Browser: استخراج 4 توثيقات، أزرار الميزات الـ 5 ظاهرة، فحص الهلوسة يعرض تقرير "4 مشبوه" مع بدائل حقيقية مقترحة، زر BibTeX يظهر بعد التحقق ويُنزّل الملف.
+
+Stage Summary:
+- النظام أصبح "خبيراً أكاديمياً شاملاً" بخمس ميزات ثورية فوق النظام الهجين.
+- ملفات جديدة: src/lib/semantic.ts, src/lib/translate.ts, src/lib/export.ts, src/app/api/research/{hallucination-scan,context-check,export}/route.ts.
+- ملفات محدّثة: src/lib/library.ts (cross-lingual), src/app/api/research/verify-page/route.ts (semantic mode), src/lib/types.ts, src/components/citation/citation-card.tsx, src/app/page.tsx.
+- كل ميزة مُتحقَّق منها بـ curl و Agent Browser.
