@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Amiri } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -13,20 +13,26 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const amiri = Amiri({
+  variable: "--font-amiri",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "700"],
+});
+
 export const metadata: Metadata = {
-  title: "FX·TERMINAL — بث العملات المباشر",
+  title: "مُدقِّق المراجع الأكاديمي — توثيق موثوق برقم الصفحة",
   description:
-    "لوحة بث مباشر لأسعار العملات والذهب والعملات الرقمية بتصميم ترمينال هاكر — تحديثات لحظية عبر WebSocket.",
+    "أداة للباحثين: الصق بحثك فيتولّى الذكاء الاصطناعي استخراج كل توثيق، ثم يبحث في المكتبات الإلكترونية الحقيقية للتأكد من اسم المؤلف ورقم الصفحة وسنة النشر.",
   keywords: [
-    "بث العملات",
-    "أسعار صرف",
-    "فوركس",
-    "بيتكوين",
-    "ذهب",
-    "live currency",
-    "forex terminal",
+    "توثيق مراجع",
+    "بحث ماجستير",
+    "APA",
+    "MLA",
+    "Chicago",
+    "Open Library",
+    "مدقق اقتباسات",
   ],
-  authors: [{ name: "FX Terminal" }],
+  authors: [{ name: "Reference Checker" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
@@ -38,9 +44,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning className="dark">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${amiri.variable} antialiased bg-background text-foreground`}
       >
         {children}
         <Toaster />
