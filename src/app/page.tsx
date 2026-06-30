@@ -10,6 +10,7 @@ import { Loader2, Sparkles, ScanSearch, FileCheck2, AlertTriangle, BookOpenCheck
 import { toast } from 'sonner'
 import { CitationCard } from '@/components/citation/citation-card'
 import { SourcesPanel } from '@/components/citation/sources-panel'
+import { AdvancedTools } from '@/components/citation/advanced-tools'
 import type { CitationRow, ExtractedCitation, VerifyResult, PageVerifyResult, HallucinationItem, ContextCheckResult } from '@/lib/types'
 import { toBibTeX, toRIS, downloadFile, type ExportSource } from '@/lib/export'
 
@@ -284,6 +285,59 @@ export default function Home() {
     toast.success(`نُزّل ملف ${format === 'ris' ? 'RIS' : 'BibTeX'} — استورده في Zotero/EndNote/Mendeley.`)
   }
 
+  const predictPage = async (id: string) => {
+    const row = rows.find((r) => r.id === id)
+    if (!row || !row.quote) {
+      toast.error('الاقتباس مطلوب للتنبؤ بالصفحة.')
+      return
+    }
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, pageVerifying: true } : r)))
+    try {
+      const res = await fetch('/api/research/predict-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote: row.quote, author: row.author, title: row.title }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'تعذّر التنبؤ.')
+        setRows((rs) => rs.map((r) => (r.id === id ? { ...r, pageVerifying: false } : r)))
+        return
+      }
+      // attach the prediction to the existing pageVerify (or create one)
+      setRows((rs) =>
+        rs.map((r) => {
+          if (r.id !== id) return r
+          const pv = r.pageVerify
+          return {
+            ...r,
+            pageVerifying: false,
+            pageVerify: pv
+              ? { ...pv, predicted: data.result }
+              : {
+                  status: 'not_found' as const,
+                  confidence: 0,
+                  claimedPage: r.page ?? null,
+                  matchedPage: null,
+                  realPage: null,
+                  matchScore: 0,
+                  exactMatch: false,
+                  snippet: '',
+                  note: data.result.note,
+                  searchedPages: 0,
+                  candidates: [],
+                  predicted: data.result,
+                },
+          }
+        }),
+      )
+      toast.success('تم التنبؤ بنطاق الصفحة من فهرس الكتاب.')
+    } catch {
+      toast.error('خطأ في الاتصال.')
+      setRows((rs) => rs.map((r) => (r.id === id ? { ...r, pageVerifying: false } : r)))
+    }
+  }
+
   const stats = {
     total: rows.length,
     verified: rows.filter((r) => r.status === 'verified').length,
@@ -433,9 +487,12 @@ export default function Home() {
                       onToggleSemantic={toggleSemantic}
                       onCheckContext={checkContext}
                       onExport={exportSource}
+                      onPredictPage={predictPage}
                     />
                   ))}
                 </div>
+
+                {rows.length > 0 && <AdvancedTools rows={rows} />}
               </>
             )}
 

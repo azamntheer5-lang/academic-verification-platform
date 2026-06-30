@@ -83,6 +83,7 @@ export interface PageVerifyResult {
   candidates: { page: number; score: number }[]
   fallback?: WebFallbackResult | null
   fallbackSearching?: boolean
+  predicted?: PredictivePageResult | null
 }
 
 // Autonomous web fallback: when the quote is NOT found in the uploaded file,
@@ -139,3 +140,66 @@ export interface HallucinationItem {
 
 // Export formats (feature 5)
 export type ExportFormat = 'bibtex' | 'ris'
+
+// Integrity (M6) — retracted/predatory
+export interface IntegrityResult {
+  retracted: boolean
+  retractionReason: string | null
+  retractionDate: string | null
+  retractionUrl: string | null
+  predatory: boolean
+  predatoryNote: string | null
+  originalDoi: string | null
+  note: string
+}
+
+// Bias report (M9)
+export interface BiasReport {
+  total: number
+  recency: { score: number; buckets: { range: string; count: number }[]; oldCount: number; recentCount: number; note: string; severity: 'ok' | 'warning' | 'critical' }
+  authorConcentration: { topAuthors: { author: string; count: number; pct: number }[]; maxPct: number; note: string; severity: 'ok' | 'warning' | 'critical' }
+  sourceDiversity: { types: { type: string; count: number; pct: number }[]; note: string; severity: 'ok' | 'warning' | 'critical' }
+  languageDiversity: { ar: number; en: number; other: number; note: string; severity: 'ok' | 'warning' | 'critical' }
+  overallNote: string
+  overallSeverity: 'ok' | 'warning' | 'critical'
+}
+
+// Predictive page (M10)
+export interface PredictivePageResult {
+  available: boolean
+  chapter: string | null
+  pageRange: string | null
+  toc: { title: string; page?: string }[]
+  note: string
+  confidence: number
+}
+
+// University guideline (M8)
+export interface GuidelineRules {
+  name: string
+  rulesText: string
+  examples: { input: string; output: string }[]
+  rawExtract: string
+}
+
+// Reference network (M7)
+export interface GraphNode {
+  id: string
+  label: string
+  author: string
+  year?: string
+  type: 'cited' | 'suggested'
+  weight: number
+}
+export interface GraphEdge {
+  source: string
+  target: string
+  relation: 'cites' | 'co_cite' | 'suggests'
+  weight: number
+  evidence?: string
+}
+export interface ReferenceGraph {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  suggestions: { author: string; reason: string }[]
+}

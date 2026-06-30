@@ -28,10 +28,11 @@ import {
   ShieldAlert,
   Download,
   Input as InputIcon,
+  Compass,
 } from 'lucide-react'
 import { StatusBadge, VerifyingBadge } from './status-badge'
 import { Input } from '@/components/ui/input'
-import type { CitationRow, LibraryHit, PageVerifyResult, ContextCheckResult } from '@/lib/types'
+import type { CitationRow, LibraryHit, PageVerifyResult, ContextCheckResult, PredictivePageResult } from '@/lib/types'
 
 interface Props {
   row: CitationRow
@@ -44,6 +45,7 @@ interface Props {
   onToggleSemantic: (id: string) => void
   onCheckContext: (id: string, file: File, quote: string, researcherClaim: string) => void
   onExport: (row: CitationRow, format: 'bibtex' | 'ris') => void
+  onPredictPage: (id: string) => void
 }
 
 function HitCard({ hit }: { hit: LibraryHit }) {
@@ -91,6 +93,7 @@ export function CitationCard({
   onToggleSemantic,
   onCheckContext,
   onExport,
+  onPredictPage,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<string | null>(null)
@@ -264,6 +267,9 @@ export function CitationCard({
             {row.pageVerify.fallback && !row.pageVerify.fallback.found && row.pageVerify.fallback.sourceHits.length > 0 && (
               <FallbackSection fb={row.pageVerify.fallback} />
             )}
+            {row.pageVerify.predicted && (
+              <PredictedPageSection pv={row.pageVerify.predicted} />
+            )}
           </>
         )}
 
@@ -407,6 +413,20 @@ export function CitationCard({
                   RIS
                 </Button>
               </div>
+            )}
+            {/* M10: predictive page (when book not available online) */}
+            {row.quote && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onPredictPage(row.id)}
+                disabled={row.pageVerifying}
+                className="gap-1 text-cyan-700 hover:text-cyan-900 hover:bg-cyan-50"
+                title="التنبؤ بنطاق الصفحة من فهرس الكتاب عند عدم توفر النص"
+              >
+                {row.pageVerifying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Compass className="h-3.5 w-3.5" />}
+                تنبؤ بالصفحة
+              </Button>
             )}
             {fileName && !row.pageVerifying && (
               <span className="text-xs text-slate-500 flex items-center gap-1">
@@ -659,6 +679,39 @@ function ContextCheckSection({ cc }: { cc: ContextCheckResult }) {
       <p className="text-sm leading-relaxed bg-white/60 border border-current/20 rounded px-2 py-1.5">
         {cc.note}
       </p>
+    </div>
+  )
+}
+
+function PredictedPageSection({ pv }: { pv: PredictivePageResult }) {
+  return (
+    <div className="rounded-md border-2 border-cyan-300 bg-cyan-50/60 px-3 py-2 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm font-bold text-cyan-900 flex items-center gap-1.5">
+          <Compass className="h-4 w-4" />
+          التنبؤ بنطاق الصفحة من فهرس الكتاب
+        </p>
+        {pv.pageRange && (
+          <Badge className="bg-cyan-200 text-cyan-900 border-cyan-300">الفصل: {pv.chapter} · النطاق: {pv.pageRange}</Badge>
+        )}
+      </div>
+      <p className="text-sm text-cyan-900 leading-relaxed bg-white/60 border border-cyan-200 rounded px-2 py-1.5">
+        {pv.note}
+      </p>
+      {pv.toc.length > 0 && (
+        <details className="text-xs">
+          <summary className="cursor-pointer text-cyan-700 hover:text-cyan-900">
+            فهرس الكتاب ({pv.toc.length} فصل)
+          </summary>
+          <ol className="mt-1.5 space-y-0.5 list-decimal pr-4 text-slate-700">
+            {pv.toc.slice(0, 12).map((t, i) => (
+              <li key={i} className={t.title === pv.chapter ? 'font-bold text-cyan-900' : ''}>
+                {t.title}{t.page ? ` — ص ${t.page}` : ''}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   )
 }

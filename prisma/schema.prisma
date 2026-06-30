@@ -1,5 +1,5 @@
 // This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// learn more about it in the docs: https://pris.ly/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -10,16 +10,139 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── Academic citation verifier ───────────────────────────────────────────────
-// A Source is a book / journal article / web page / thesis that the researcher
-// is citing. Its full text content is stored page-by-page in `Page` so we can
-// verify that a given quote really appears on the claimed page.
+// ── Academic AI Ecosystem ───────────────────────────────────────────────────
+// The system stores: Users → Researches → Documents + Citations → Verifications.
+// Plus: UniversityGuideline (custom style adapters), CitationEdge (network graph).
+// Note: SQLite has no enums and no @db.Text, so statuses are plain strings.
+
+// ── 1. Users (researchers) ───────────────────────────────────────────────────
+model User {
+  id        String      @id @default(cuid())
+  name      String
+  email     String      @unique
+  createdAt DateTime    @default(now())
+  researches Research[]
+}
+
+// ── 2. Research projects ─────────────────────────────────────────────────────
+model Research {
+  id        String      @id @default(cuid())
+  title     String
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents Document[]
+  citations ResearchCitation[]
+  createdAt DateTime    @default(now())
+}
+
+// ── 3. Uploaded source files (PDF/Word) ──────────────────────────────────────
+model Document {
+  id          String   @id @default(cuid())
+  fileName    String
+  fileUrl     String
+  fileType    String   @default("pdf") // pdf | docx
+  researchId  String
+  research    Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+// ── 4. Citations within a research (the heart of the system) ─────────────────
+model ResearchCitation {
+  id             String   @id @default(cuid())
+  researchId     String
+  research       Research @relation(fields: [researchId], references: [id], onDelete: Cascade)
+
+  // Researcher inputs
+  authorInput    String
+  quoteInput     String
+  expectedPage   String?
+
+  // Final verification status (PENDING | VERIFIED_EXACT | VERIFIED_CORRECTED | ALTERNATIVE_FOUND | HALLUCINATION | NOT_FOUND)
+  status         String   @default("PENDING")
+
+  // Verified canonical reference (the "100% correct" output)
+  verifiedAuthor    String?
+  verifiedTitle     String?
+  verifiedYear      String?
+  verifiedPage      String?
+  verifiedPublisher String?
+  verifiedIsbn      String?
+  verifiedDoi       String?
+  fullApaCitation   String?
+  fullMlaCitation   String?
+
+  verification   VerificationResult?
+
+  createdAt      DateTime @default(now())
+}
+
+// ── 5. Verification results (the smart radar) ────────────────────────────────
+model VerificationResult {
+  id               String           @id @default(cuid())
+  citationId       String           @unique
+  citation         ResearchCitation @relation(fields: [citationId], references: [id], onDelete: Cascade)
+
+  // File vs library
+  foundInFile      Boolean  @default(false)
+  foundInLibrary   Boolean  @default(false)
+  matchedPage      Int?
+  realPage         Int?
+  matchScore       Float    @default(0)
+
+  // Integrity / hallucination
+  isHallucination  Boolean  @default(false)
+  isRetracted      Boolean  @default(false)
+  retractionReason String?
+  isPredatory      Boolean  @default(false)
+  predatoryNote    String?
+  contextWarning   String?
+  contextSeverity  String?  // ok | warning | critical
+  semanticMatch    Boolean  @default(false)
+  semanticScore    Float    @default(0)
+
+  // Predictive page (M10)
+  predictedChapter String?
+  predictedRange   String?  // e.g. "65-88"
+
+  createdAt        DateTime @default(now())
+}
+
+// ── 6. University guideline adapters (M8) ────────────────────────────────────
+model UniversityGuideline {
+  id          String   @id @default(cuid())
+  name        String   // e.g. "جامعة الملك سعود"
+  rulesText   String   // extracted rules from the uploaded PDF (LLM-parsed)
+  rawExtract  String?  // the raw text of the guideline PDF
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── 7. Citation network edges (M7) ───────────────────────────────────────────
+// An edge records a discovered "A cites B" or "A co-cites with B" relationship
+// between two cited works in a research.
+model CitationEdge {
+  id           String   @id @default(cuid())
+  researchId   String
+  fromAuthor   String   // the citing author/work key
+  toAuthor     String   // the cited author/work key
+  relation     String   @default("cites") // cites | co_cite | suggests
+  weight       Float    @default(1)
+  evidence     String?  // URL or snippet supporting the relation
+  createdAt    DateTime @default(now())
+
+  @@index([researchId])
+}
+
+// ── Legacy models (kept for backward compatibility with the existing UI) ─────
+// The original Source/Page/Citation models power the library-panel UI. They
+// remain unchanged so the existing flows keep working while the new ecosystem
+// models above extend the system.
 
 model Source {
   id          String   @id @default(cuid())
-  type        String   @default("book") // book | journal | web | thesis | other
+  type        String   @default("book")
   title       String
-  authors     String // newline-separated "Last, First" entries
+  authors     String
   year        String
   publisher   String?
   city        String?
@@ -27,10 +150,10 @@ model Source {
   journal     String?
   volume      String?
   issue       String?
-  pagesRange  String? // e.g. "12-45" for a journal article
+  pagesRange  String?
   url         String?
   doi         String?
-  language    String? @default("ar") // ar | en
+  language    String? @default("ar")
   note        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -42,7 +165,7 @@ model Source {
 model Page {
   id        String @id @default(cuid())
   sourceId  String
-  number    Int // 1-based page number as it appears in the source
+  number    Int
   content   String
   source    Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
@@ -53,17 +176,17 @@ model Page {
 model Citation {
   id          String   @id @default(cuid())
   sourceId    String
-  quote       String // the verbatim text the researcher wants to cite
-  claim       String? // optional paraphrase / claim to verify semantically
-  pageNumber  Int? // the page the researcher claims the quote is on
-  style       String   @default("apa") // apa | mla | chicago | harvard
-  status      String   @default("unverified") // verified | partial | mismatch | unverified | not_found
-  confidence  Float    @default(0) // 0..1
+  quote       String
+  claim       String?
+  pageNumber  Int?
+  style       String   @default("apa")
+  status      String   @default("unverified")
+  confidence  Float    @default(0)
   exactMatch  Boolean  @default(false)
-  matchedPage Int? // the page where the quote was actually found (if any)
-  matchScore  Float    @default(0) // best fuzzy similarity 0..1
-  llmVerdict  String? // supported | not_supported | partial | unknown
-  llmNote     String? // human-readable explanation from the model
+  matchedPage Int?
+  matchScore  Float    @default(0)
+  llmVerdict  String?
+  llmNote     String?
   createdAt   DateTime @default(now())
 
   source      Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
