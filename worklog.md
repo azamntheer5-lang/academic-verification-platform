@@ -186,3 +186,29 @@ Stage Summary:
 - الوحدات الثلاث شغّالة بالكامل + الواجهة محدّثة بالتبويبات وdropdown.
 - ملفات جديدة: src/server/verify-engine/{formatters,batch-cleaner}.ts, src/app/api/clean-bibliography/route.ts.
 - ملفات محدّثة: src/server/verify-engine/{models,pdf-extractor,service}.ts, src/app/api/verify-engine/route.ts, src/components/citation-verification-card.tsx.
+
+---
+Task ID: production-phase
+Agent: main
+Task: المرحلة الإنتاجية النهائية: (1) ربط Prisma DB بـ verify-engine و clean-bibliography + GET /api/my-library، (2) مولّد شهادة PDF، (3) vercel.json + Dockerfile، (4) تحديث الواجهة (تحديث مكتبتي تلقائياً + أزرار الشهادة).
+
+Work Log:
+- P1A (persistence layer): بنيت src/server/verify-engine/persistence.ts: ensureUser (singleton anon user) + persistVerification (يخزّن ResearchCitation + VerificationResult) + persistBatch (يخزّن كل عناصر clean-bibliography) + fetchMyLibrary. ربطت /api/verify-engine و /api/clean-bibliography باستدعاء persistence بعد كل عملية (best-effort).
+- P1B: بنيت GET /api/my-library يرجع سجلات المستخدم المحفوظة (status, verifiedAuthor/Title/Year/Page, fullApa, isHallucination).
+- P2 (شهادة PDF): بنيت src/lib/certificate.ts: generateCertificate() يفتح نافذة جديدة بـ HTML/CSS مخصص للطباعة (window.print). يشمل: header رسمي بـ "منصة التحقق الأكاديمي الشاملة" + seal دائري ذهبي + gold-line، watermark "معتمد ✓ موثّق" بزاوية -28deg، stats cards (إجمالي/موثّق/مشبوه)، جدول كامل (النص/العنوان/المؤلف/الصفحة/APA/الحالة)، footer بـ QR box + توقيع آلي + رقم شهادة. أضفت زر "تحميل شهادة فحص الأمانة العلمية" في القسمين (hybrid + cleaner).
+- P3A: أنشأت vercel.json في جذر المشروع: headers أمنية (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)، cache-control للـ API (no-store) و static (immutable)، functions بتخصيص maxDuration/memory لكل API route، regions متعددة.
+- P3B: أنشأت backend/Dockerfile: Python 3.11-slim base + gunicorn==22.0.0 + uvicorn workers (4 workers × 16 threads) + HEALTHCHECK + PORT/WEB_CONCURRENCY env vars + .dockerignore + README.md.
+- P4 (الواجهة): حدّثت sources-panel.tsx (مكتبتي) ليجلب من /api/my-library + /api/sources مدمجين، يعرض سجلات audit بشارات status ملونة (emerald للـ verified، rose للـ hallucination) + fullApa. أضفت إطلاق حدث 'audits-changed' بعد كل تحقق/تطهير لتحديث مكتبتي تلقائياً. الإطار الهندسي + خط Cairo محفوظان.
+- lint نظيف (0 أخطاء).
+- صعوبة: Prisma Client كان محمّلاً قديماً في dev server بعد تحديث الـ schema ← أعدت تشغيل dev server.
+- تحققت بـ curl:
+  • verify-engine يخزّن سجل ← my-library يرجعه ✓
+  • clean-bibliography يخزّن batch ← my-library يزداد (3 سجلات: 2 verified + 1 hallucination) ✓
+- تحققت عبر Agent Browser:
+  • ملأت النموذج + رفعت PDF + تحققت → "التوثيق صحيح 100%" + مكتبتي زادت من 7 إلى 8 تلقائياً ✓
+  • ضغطت زر "تحميل شهادة فحص الأمانة العلمية" → نافذة الشهادة فُتحت بجدول كامل (الاقتباس/المؤلف/الصفحة صـ3/الحالة موثّق حرفياً) ✓
+
+Stage Summary:
+- المنصة جاهزة للإنتاج: DB persistence + شهادة PDF + deployment configs + UI متزامن.
+- ملفات جديدة: src/server/verify-engine/persistence.ts, src/app/api/my-library/route.ts, src/lib/certificate.ts, vercel.json, backend/{Dockerfile,.dockerignore,README.md}.
+- ملفات محدّثة: src/app/api/{verify-engine,clean-bibliography}/route.ts, src/components/citation-verification-card.tsx (أزرار الشهادة + تحديث مكتبتي), src/components/citation/sources-panel.tsx (دمج audit + manual sources).

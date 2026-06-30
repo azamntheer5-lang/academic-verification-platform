@@ -15,6 +15,7 @@ import {
   Globe,
   Brain,
   ListChecks,
+  Award,
   type LucideIcon,
 } from 'lucide-react'
 import type {
@@ -23,6 +24,7 @@ import type {
 } from '@/server/verify-engine/models'
 import type { FormatStyle } from '@/server/verify-engine/models'
 import { STYLE_LABELS } from '@/server/verify-engine/formatters'
+import { generateCertificate, type CertificateData } from '@/lib/certificate'
 
 interface ResultState {
   status: VerifyStatus
@@ -221,6 +223,10 @@ function HybridTab({ style }: { style: FormatStyle }) {
       })
     } finally {
       setIsLoading(false)
+      // Refresh the "مكتبتي" panel so the new audit record appears.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('audits-changed'))
+      }
     }
   }
 
@@ -392,6 +398,34 @@ function HybridTab({ style }: { style: FormatStyle }) {
               </div>
             </div>
           )}
+
+          {/* Certificate download button (P2) */}
+          {result.status !== 'ERROR' && (
+            <button
+              onClick={() =>
+                generateCertificate({
+                  totalChecked: 1,
+                  authenticatedCount: ['VERIFIED_EXACT', 'VERIFIED_CORRECTED', 'VERIFIED_SEMANTIC', 'ALTERNATIVE_FOUND'].includes(result.status) ? 1 : 0,
+                  suspiciousCount: ['NOT_FOUND'].includes(result.status) ? 1 : 0,
+                  items: [
+                    {
+                      quote,
+                      author,
+                      status: result.status,
+                      verifiedTitle: result.alternative?.title || null,
+                      verifiedAuthor: result.alternative?.author || author,
+                      verifiedPage: result.page,
+                      fullApa: result.alternative?.fullApa || null,
+                    },
+                  ],
+                })
+              }
+              className="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2"
+            >
+              <Award className="w-5 h-5" />
+              تحميل شهادة فحص الأمانة العلمية
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -427,6 +461,10 @@ function CleanerTab({ style }: { style: FormatStyle }) {
       setItems([{ raw: 'خطأ', parsedAuthor: '', parsedYear: '', parsedTitle: '', status: 'ERROR', matchedSource: null, recommendation: null, note: 'فشل الاتصال.' }])
     } finally {
       setIsLoading(false)
+      // Refresh the "مكتبتي" panel so the new batch appears.
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('audits-changed'))
+      }
     }
   }
 
@@ -477,6 +515,33 @@ function CleanerTab({ style }: { style: FormatStyle }) {
             <CleanItemCard key={i} item={item} style={style} />
           ))}
         </div>
+      )}
+
+      {/* Certificate download button (P2) */}
+      {items && !isLoading && stats && (
+        <button
+          onClick={() => {
+            const certData: CertificateData = {
+              totalChecked: stats.total,
+              authenticatedCount: stats.verified,
+              suspiciousCount: stats.suspicious,
+              items: items.map((item) => ({
+                quote: item.parsedTitle,
+                author: item.parsedAuthor,
+                status: item.status === 'VERIFIED' ? 'VERIFIED_EXACT' : item.status === 'SUSPICIOUS_HALLUCINATION' ? 'HALLUCINATION' : 'ERROR',
+                verifiedTitle: item.recommendation?.title || item.parsedTitle,
+                verifiedAuthor: item.recommendation?.author || item.parsedAuthor,
+                verifiedPage: null,
+                fullApa: item.recommendation?.fullApa || null,
+              })),
+            }
+            generateCertificate(certData)
+          }}
+          className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-base"
+        >
+          <Award className="w-5 h-5" />
+          تحميل شهادة فحص الأمانة العلمية
+        </button>
       )}
     </div>
   )
