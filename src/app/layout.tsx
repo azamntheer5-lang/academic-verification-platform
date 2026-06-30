@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Amiri } from "next/font/google";
+import { Geist, Geist_Mono, Cairo, Amiri } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -13,6 +13,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Cairo — executive Arabic typeface (primary). Amiri kept as a display
+// fallback for ornamental quote blocks.
+const cairo = Cairo({
+  variable: "--font-cairo",
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
 const amiri = Amiri({
   variable: "--font-amiri",
   subsets: ["arabic", "latin"],
@@ -20,19 +28,21 @@ const amiri = Amiri({
 });
 
 export const metadata: Metadata = {
-  title: "مُدقِّق المراجع الأكاديمي — توثيق موثوق برقم الصفحة",
+  title: "منصة التحقق الأكاديمي | محرك التوثيق الهجين",
   description:
-    "أداة للباحثين: الصق بحثك فيتولّى الذكاء الاصطناعي استخراج كل توثيق، ثم يبحث في المكتبات الإلكترونية الحقيقية للتأكد من اسم المؤلف ورقم الصفحة وسنة النشر.",
+    "منصة احترافية للتحقق من توثيقات البحث العلمي: تشريح عميق لملف PDF + اتصال سحابي بالمكتبات العالمية (Google Books + Open Library) مع توليد توثيق APA جاهز للنسخ.",
   keywords: [
     "توثيق مراجع",
     "بحث ماجستير",
     "APA",
     "MLA",
     "Chicago",
+    "Google Books",
     "Open Library",
     "مدقق اقتباسات",
+    "محرك هجين",
   ],
-  authors: [{ name: "Reference Checker" }],
+  authors: [{ name: "Academic Verification Platform" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
@@ -46,7 +56,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${amiri.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} ${cairo.variable} ${amiri.variable} antialiased bg-background text-foreground font-[var(--font-cairo)]`}
       >
         {children}
         <Toaster />

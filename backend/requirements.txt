@@ -1,0 +1,11 @@
+# ── Decoupled Academic Citation Verification Platform — Backend ───────────────
+# Reference FastAPI blueprint. In this sandbox the live engine runs as a
+# decoupled TypeScript module (src/server/verify-engine/) for environment
+# compatibility; this Python file documents the same contract for deployment
+# to a Python runtime (uvicorn/gunicorn).
+
+fastapi==0.111.0
+uvicorn==0.30.1
+pypdf==4.2.0
+httpx==0.27.0
+python-multipart==0.0.9

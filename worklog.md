@@ -136,3 +136,27 @@ Stage Summary:
 - ملفات جديدة: src/lib/{integrity,network,guideline,bias,predictive}.ts, src/app/api/research/{integrity,network,guideline,guideline-format,bias,predict-page}/route.ts, src/components/citation/{advanced-tools,network-graph}.tsx.
 - ملفات محدّثة: prisma/schema.prisma, src/lib/types.ts, src/components/citation/citation-card.tsx, src/app/page.tsx.
 - كل ميزة مُتحقَّق منها بـ curl و Agent Browser.
+
+---
+Task ID: decoupled-platform
+Agent: main
+Task: بناء منصة التحقق الأكاديمي المفصولة (Decoupled) — مرجع FastAPI/Python + محرك TypeScript مفصول + واجهة مميزة بخط Cairo وإطار هندسي + Google Books API.
+
+Work Log:
+- PART 1A (مرجع Python): أنشأت backend/requirements.txt و backend/main.py بـ FastAPI + pypdf + httpx، مع POST /api/verify (تشريح PDF + Google Books fallback + APA formatter). ملف مرجعي للنشر في بيئة Python.
+- PART 1B (محرك TS المفصول): أنشأت src/server/verify-engine/ بـ 5 ملفات: models.ts (VerifyStatus/VerifyResponse/AlternativeReference), pdf-extractor.ts (extractPagesFromPdf عبر mini-service + scanFileForQuote + extractPrintedPage من الهوامش), apa-formatter.ts (formatApa7), library-fallback.ts (Google Books + Open Library + web search ثلاث طبقات), service.ts (runVerification orchestrator بمرحلتين).
+- PART 1C (API route): أنشأت src/app/api/verify-engine/route.ts — thin route يفوّض لـ service. يدعم page و expected_page.
+- PART 2A (layout): حدّثت layout.tsx لإضافة خط Cairo (weight 400-800) كلغة أساسية + Amiri كاحتياطي. ضبط font-[var(--font-cairo)] على body.
+- PART 2B (الواجهة): أنشأت src/components/citation-verification-card.tsx — بطاقة hero بإطار هندسي مميز (corner ornaments بنفسجية + double-line accents سوداء/ذهبية)، header مركزي، drag-and-drop upload، skeleton loader، 4 لوحات نتائج ملونة (emerald/amber/indigo/rose)، زر نسخ APA، أيقونات Lucide.
+- PART 2C (الدمج): أضفت CitationVerificationCard كقسم hero في أعلى page.tsx قبل نظام batch extraction.
+- أضفت Google Books API (strict "quote" inauthor:author) كطبقة 1، Open Library كطبقة 2، z-ai web_search كطبقة 3 (لأن Google Books وصل 429 quota).
+- lint نظيف (0 أخطاء).
+- تحققت بـ curl: المرحلة 1 (VERIFIED_EXACT, page 3) ✓، المرحلة 2 (ALTERNATIVE_FOUND من Goodreads عبر web search) ✓.
+- تحققت عبر Agent Browser: ملأت النموذج، رفعت PDF، ضغطت "ابدأ التدقيق"، ظهرت النتيجة "التوثيق صحيح 100% · صـ 3" في لوحة emerald.
+
+Stage Summary:
+- منصة التحقق المفصولة شغّالة بالكامل: مرجع Python + تطبيق TS مفصول + واجهة Cairo مميزة.
+- الفصل المنطقي: src/server/verify-engine/ (backend) ↔ /api/verify-engine (route) ↔ citation-verification-card.tsx (frontend).
+- العقد (Contract) موحّد بين Python و TS: {status, message, page, alternative}.
+- ملفات جديدة: backend/{requirements.txt,main.py}, src/server/verify-engine/{models,pdf-extractor,apa-formatter,library-fallback,service}.ts, src/app/api/verify-engine/route.ts, src/components/citation-verification-card.tsx.
+- ملفات محدّثة: src/app/layout.tsx (Cairo font), src/app/page.tsx (hero section).

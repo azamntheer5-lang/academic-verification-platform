@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { CitationCard } from '@/components/citation/citation-card'
 import { SourcesPanel } from '@/components/citation/sources-panel'
 import { AdvancedTools } from '@/components/citation/advanced-tools'
+import { CitationVerificationCard } from '@/components/citation-verification-card'
 import type { CitationRow, ExtractedCitation, VerifyResult, PageVerifyResult, HallucinationItem, ContextCheckResult } from '@/lib/types'
 import { toBibTeX, toRIS, downloadFile, type ExportSource } from '@/lib/export'
 
@@ -372,6 +373,11 @@ export default function Home() {
 
       {/* Main */}
       <main className="container mx-auto px-4 py-6 max-w-6xl flex-1">
+        {/* ── Hero: Hybrid Verification Engine (decoupled) ── */}
+        <div className="mb-8">
+          <CitationVerificationCard />
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left: work area */}
           <div className="lg:col-span-2 space-y-6">
