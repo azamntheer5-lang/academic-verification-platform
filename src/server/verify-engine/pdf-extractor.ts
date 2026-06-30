@@ -42,6 +42,22 @@ function tokenize(text: string): string[] {
   return normalize(text)
     .split(' ')
     .filter((w) => w.length > 2 && !STOPWORDS.has(w))
+    .map(stem)
+}
+
+// Very lightweight English stemmer — strips common suffixes so that
+// "explicit/explicitly", "program/programming/programmed", "learn/learning"
+// collapse to the same token. This dramatically improves semantic matching
+// for paraphrased quotes without pulling in a full NLP dependency.
+function stem(w: string): string {
+  if (w.length <= 4) return w
+  // order matters: longest suffixes first
+  for (const suf of ['ingly', 'edly', 'ings', 'edly', 'ment', 'tions', 'ation', 'ations', 'ically', 'ical', 'ions', 'tion', 'ing', 'ed', 'ies', 'ied', 'ies', 's']) {
+    if (w.length > suf.length + 2 && w.endsWith(suf)) {
+      return w.slice(0, -suf.length)
+    }
+  }
+  return w
 }
 
 // Read the top/bottom margin of a page and detect a standalone page number
