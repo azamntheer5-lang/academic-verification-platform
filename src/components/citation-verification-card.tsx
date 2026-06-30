@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
 import {
   Upload,
   CheckCircle,
@@ -560,6 +561,8 @@ function CleanerTab({ style }: { style: FormatStyle }) {
 interface GeneratedRef {
   topic: string
   reference: { title: string; author: string; year: string; publisher: string; fullApa: string }
+  page: number | null
+  pageConfirmed: boolean
   formatted: string
   relevanceNote: string
 }
@@ -701,13 +704,20 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
                       <Badge className="text-xs bg-violet-100 text-violet-800 border-violet-200 shrink-0">
                         {i + 1}. {ref.topic}
                       </Badge>
-                      <button
-                        onClick={() => copyRef(ref.formatted, i)}
-                        className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1 shrink-0"
-                      >
-                        {copiedIdx === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                        {copiedIdx === i ? 'نُسخ' : 'نسخ'}
-                      </button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {ref.pageConfirmed && ref.page && (
+                          <Badge className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200 gap-1">
+                            <CheckCircle className="h-3 w-3" /> صـ {ref.page}
+                          </Badge>
+                        )}
+                        <button
+                          onClick={() => copyRef(ref.formatted, i)}
+                          className="text-xs px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-1"
+                        >
+                          {copiedIdx === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {copiedIdx === i ? 'نُسخ' : 'نسخ'}
+                        </button>
+                      </div>
                     </div>
                     <p className="text-sm font-medium text-slate-900">{ref.reference.title}</p>
                     <p className="text-xs text-slate-600">
@@ -716,6 +726,11 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
                     </p>
                     {ref.relevanceNote && (
                       <p className="text-xs text-violet-700 mt-1 italic">💡 {ref.relevanceNote}</p>
+                    )}
+                    {!ref.pageConfirmed && (
+                      <p className="text-[10px] text-amber-600 mt-1">
+                        ⚠️ لم يُعثر على رقم صفحة مؤكد — راجع فهرس الكتاب يدوياً
+                      </p>
                     )}
                     <div className="mt-2 bg-slate-50 rounded px-2 py-1.5 text-xs font-mono text-slate-700 border border-slate-200" dir="ltr">
                       {ref.formatted}
