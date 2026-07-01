@@ -52,43 +52,43 @@ const STATUS_CONFIG: Record<
   { bg: string; border: string; icon: LucideIcon; iconColor: string; titleColor: string }
 > = {
   VERIFIED_EXACT: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: CheckCircle,
     iconColor: 'text-emerald-600',
-    titleColor: 'text-emerald-800',
+    titleColor: 'text-slate-800',
   },
   VERIFIED_CORRECTED: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: AlertTriangle,
     iconColor: 'text-amber-600',
-    titleColor: 'text-amber-800',
+    titleColor: 'text-slate-800',
   },
   VERIFIED_SEMANTIC: {
-    bg: 'bg-violet-50',
-    border: 'border-violet-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: Brain,
     iconColor: 'text-violet-600',
-    titleColor: 'text-violet-800',
+    titleColor: 'text-slate-800',
   },
   ALTERNATIVE_FOUND: {
-    bg: 'bg-indigo-50',
-    border: 'border-indigo-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: RefreshCw,
     iconColor: 'text-indigo-600',
-    titleColor: 'text-indigo-800',
+    titleColor: 'text-slate-800',
   },
   NOT_FOUND: {
-    bg: 'bg-rose-50',
-    border: 'border-rose-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: XCircle,
     iconColor: 'text-rose-600',
-    titleColor: 'text-rose-800',
+    titleColor: 'text-slate-800',
   },
   ERROR: {
-    bg: 'bg-rose-50',
-    border: 'border-rose-300',
+    bg: 'bg-white',
+    border: 'border-slate-200',
     icon: XCircle,
     iconColor: 'text-rose-600',
     titleColor: 'text-rose-800',
@@ -102,47 +102,39 @@ export function CitationVerificationCard() {
   const [style, setStyle] = useState<FormatStyle>('apa7')
 
   return (
-    <div className="relative max-w-3xl mx-auto" dir="rtl">
-      {/* ── Premium geometric frame ── */}
-      <div className="relative">
-        <CornerOrnament className="top-0 right-0 border-t-2 border-r-2 rounded-tr-lg" />
-        <CornerOrnament className="top-0 left-0 border-t-2 border-l-2 rounded-tl-lg" />
-        <CornerOrnament className="bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg" />
-        <CornerOrnament className="bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg" />
-
-        <div className="border border-slate-300 rounded-xl bg-white shadow-xl overflow-hidden">
-          <div className="border-b-2 border-slate-800/80" />
-          <div className="border-b border-amber-500/60" />
-
+    <div className="max-w-3xl mx-auto" dir="rtl">
+      {/* ── Premium minimal card (no ornamental frames) ── */}
+      <div className="rounded-2xl bg-white shadow-[0_4px_24px_-8px_rgba(15,23,42,0.12)] border border-slate-200/70 overflow-hidden">
           <div className="p-6 sm:p-8">
-            {/* Header */}
-            <div className="text-center mb-6 pb-5 border-b border-slate-200">
-              <div className="inline-flex items-center justify-center gap-3 mb-2">
-                <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-900 text-amber-400">
-                  <BookOpen className="w-6 h-6" />
-                </div>
+            {/* Header — clean wordmark, no boxed icon */}
+            <div className="text-center mb-7">
+              <div className="inline-flex items-center gap-2.5 mb-3">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                <span className="text-[11px] font-bold tracking-[0.2em] text-emerald-700 uppercase">Academic Verification Platform</span>
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
               </div>
-              <h3 className="font-bold text-2xl sm:text-3xl text-slate-900 tracking-tight">
+              <h3 className="font-bold text-2xl sm:text-[28px] text-slate-900 tracking-tight leading-tight">
                 منصة التحقق الأكاديمي الشاملة
               </h3>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
                 محرك هجين + مطابقة دلالية + تطهير هلوسة + مهندس تنسيق جامعي
               </p>
-              <p className="text-xs text-amber-700 mt-2 font-semibold tracking-wide">
-                ✦ تطوير وإشراف: Azzam ✦
+              <p className="text-xs text-slate-400 mt-3 font-medium">
+                تطوير وإشراف <span className="text-slate-700 font-bold">Azzam</span>
               </p>
             </div>
 
-            {/* ── Global style dropdown ── */}
-            <div className="mb-5 flex items-center justify-between gap-3 flex-wrap bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-slate-500" />
-                اختر دليل التنسيق المعتمد:
+            <div className="h-px bg-gradient-to-l from-transparent via-slate-200 to-transparent mb-6" />
+
+            {/* ── Global style dropdown — minimal ── */}
+            <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
+              <label className="text-xs font-semibold text-slate-500 tracking-wide">
+                دليل التنسيق
               </label>
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value as FormatStyle)}
-                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-800 focus:ring-2 focus:ring-slate-900 focus:border-slate-900 outline-none cursor-pointer"
+                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 outline-none cursor-pointer transition-colors"
               >
                 {(Object.keys(STYLE_LABELS) as FormatStyle[]).map((s) => (
                   <option key={s} value={s}>
@@ -152,8 +144,8 @@ export function CitationVerificationCard() {
               </select>
             </div>
 
-            {/* ── Tabs ── */}
-            <div className="grid grid-cols-3 gap-2 mb-5">
+            {/* ── Tabs — pill style, generous spacing ── */}
+            <div className="flex gap-1.5 mb-7 p-1 bg-slate-100/70 rounded-xl">
               <TabButton
                 active={tab === 'hybrid'}
                 onClick={() => setTab('hybrid')}
@@ -183,11 +175,7 @@ export function CitationVerificationCard() {
               <GeneratorTab style={style} />
             )}
           </div>
-
-          <div className="border-t border-amber-500/60" />
-          <div className="border-t-2 border-slate-800/80" />
         </div>
-      </div>
     </div>
   )
 }
@@ -357,7 +345,7 @@ function HybridTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleProcess}
         disabled={isLoading}
-        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle className="w-6 h-6" />}
         {isLoading ? 'يتم الآن فحص الملف والمكتبات العالمية...' : 'ابدأ التدقيق والتحقق الشامل'}
@@ -501,7 +489,7 @@ function CleanerTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleClean}
         disabled={isLoading || !raw.trim()}
-        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ListChecks className="w-6 h-6" />}
         {isLoading ? 'جارٍ فحص كل مرجع عبر المكتبات الثلاث...' : 'ابدأ تطهير وتنظيف المراجع'}
@@ -654,7 +642,7 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleGenerate}
         disabled={isLoading || researchText.trim().length < 50}
-        className="w-full bg-slate-900 hover:bg-slate-800 disabled:opacity-70 text-white font-bold py-4 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 text-lg"
+        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
         {isLoading ? 'يحلّل المحتوى ويبحث في المكتبات العالمية...' : 'ولّد مراجع حقيقية لبحثي'}
@@ -822,8 +810,10 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
-        active ? 'bg-slate-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg font-semibold text-[13px] transition-all ${
+        active
+          ? 'bg-white text-emerald-700 shadow-sm'
+          : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
       }`}
     >
       {icon}
@@ -839,8 +829,4 @@ function StatCard({ label, value, cls }: { label: string; value: number; cls: st
       <p className="text-xs font-medium opacity-80">{label}</p>
     </div>
   )
-}
-
-function CornerOrnament({ className }: { className: string }) {
-  return <div className={`absolute z-10 h-7 w-7 border-amber-500 pointer-events-none ${className}`} aria-hidden />
 }

@@ -351,22 +351,18 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100/50">
       {/* Header */}
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 max-w-6xl">
+      <header className="border-b border-slate-200/70 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-3.5 max-w-6xl">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-white">
-                <BookOpenCheck className="h-6 w-6" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 leading-tight">مُدقِّق المراجع الأكاديمي</h1>
-                <p className="text-xs text-slate-500">تحقق من توثيقات بحثك في المكتبات الإلكترونية الحقيقية</p>
-              </div>
+            <div className="flex items-center gap-2.5">
+              <div className="h-2 w-2 rounded-full bg-emerald-600" />
+              <h1 className="text-base font-bold text-slate-900 tracking-tight">منصة التحقق الأكاديمي</h1>
+              <span className="text-slate-300">·</span>
+              <span className="text-xs text-slate-500">تحقيق ذكي بالمراجع</span>
             </div>
-            <Badge variant="outline" className="gap-1.5 bg-emerald-50 text-emerald-700 border-emerald-200">
-              <Sparkles className="h-3.5 w-3.5" />
-              مدعوم بالذكاء الاصطناعي + Open Library
-            </Badge>
+            <span className="text-[11px] text-slate-400 font-medium tracking-wide">
+              Google Books · Open Library · Crossref
+            </span>
           </div>
         </div>
       </header>
@@ -515,11 +511,14 @@ export default function Home() {
         </div>
       </main>
 
-      <Separator />
-      <footer className="bg-white border-t border-slate-200 mt-auto">
-        <div className="container mx-auto px-4 py-4 max-w-6xl text-center text-xs text-slate-400 space-y-1">
-          <p>أداة مساعدة للباحثين · التحقق عبر Google Books + Open Library + Crossref · راجع دائماً المصدر الأصلي للتأكيد النهائي.</p>
-          <p className="text-amber-700 font-semibold">✦ تطوير وإشراف: Azzam ✦</p>
+      <footer className="border-t border-slate-200/70 mt-auto">
+        <div className="container mx-auto px-4 py-5 max-w-6xl flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-xs text-slate-400">
+            تحقق عبر Google Books · Open Library · Crossref
+          </p>
+          <p className="text-xs text-slate-500">
+            تطوير <span className="text-slate-800 font-bold">Azzam</span>
+          </p>
         </div>
       </footer>
     </div>
