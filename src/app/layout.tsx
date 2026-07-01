@@ -28,7 +28,7 @@ const amiri = Amiri({
 });
 
 export const metadata: Metadata = {
-  title: "منصة التحقق الأكاديمي | محرك التوثيق الهجين",
+  title: "منصة التحقق الأكاديمي الشاملة | تطوير Azzam",
   description:
     "منصة احترافية للتحقق من توثيقات البحث العلمي: تشريح عميق لملف PDF + اتصال سحابي بالمكتبات العالمية (Google Books + Open Library) مع توليد توثيق APA جاهز للنسخ.",
   keywords: [

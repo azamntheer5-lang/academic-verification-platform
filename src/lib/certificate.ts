@@ -305,7 +305,8 @@ function buildCertificateHtml(data: CertificateData): string {
       <div class="qr">ختم<br>إلكتروني</div>
       <div class="signature">
         <div class="line"></div>
-        نظام التحقق الهجين · توقيع آلي معتمد
+        نظام التحقق الهجين · توقيع آلي معتمد<br>
+        <span style="color:#ca8a04;font-weight:700">تطوير وإشراف: Azzam</span>
       </div>
       <div style="text-align:left">
         منصة التحقق الأكاديمي الشاملة<br>

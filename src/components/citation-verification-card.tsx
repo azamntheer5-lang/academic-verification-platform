@@ -128,6 +128,9 @@ export function CitationVerificationCard() {
               <p className="text-sm text-slate-500 mt-1">
                 محرك هجين + مطابقة دلالية + تطهير هلوسة + مهندس تنسيق جامعي
               </p>
+              <p className="text-xs text-amber-700 mt-2 font-semibold tracking-wide">
+                ✦ تطوير وإشراف: Azzam ✦
+              </p>
             </div>
 
             {/* ── Global style dropdown ── */}

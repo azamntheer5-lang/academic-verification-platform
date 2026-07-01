@@ -517,8 +517,9 @@ export default function Home() {
 
       <Separator />
       <footer className="bg-white border-t border-slate-200 mt-auto">
-        <div className="container mx-auto px-4 py-4 max-w-6xl text-center text-xs text-slate-400">
-          أداة مساعدة للباحثين · التحقق عبر Open Library API + بحث الويب · راجع دائماً المصدر الأصلي للتأكيد النهائي.
+        <div className="container mx-auto px-4 py-4 max-w-6xl text-center text-xs text-slate-400 space-y-1">
+          <p>أداة مساعدة للباحثين · التحقق عبر Google Books + Open Library + Crossref · راجع دائماً المصدر الأصلي للتأكيد النهائي.</p>
+          <p className="text-amber-700 font-semibold">✦ تطوير وإشراف: Azzam ✦</p>
         </div>
       </footer>
     </div>
