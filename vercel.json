@@ -1,17 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
   "framework": "nextjs",
   "buildCommand": "bun run build",
   "installCommand": "bun install",
-  "devCommand": "bun run dev",
+  "outputDirectory": ".next",
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     },
     {
@@ -30,12 +30,13 @@
   "functions": {
     "src/app/api/verify-engine/route.ts": { "maxDuration": 60, "memory": 1024 },
     "src/app/api/clean-bibliography/route.ts": { "maxDuration": 120, "memory": 1024 },
+    "src/app/api/generate-references/route.ts": { "maxDuration": 120, "memory": 1024 },
+    "src/app/api/my-library/route.ts": { "maxDuration": 30, "memory": 512 },
     "src/app/api/research/extract/route.ts": { "maxDuration": 60, "memory": 1024 },
     "src/app/api/research/verify/route.ts": { "maxDuration": 60, "memory": 1024 },
     "src/app/api/research/verify-page/route.ts": { "maxDuration": 60, "memory": 1024 },
     "src/app/api/research/hallucination-scan/route.ts": { "maxDuration": 120, "memory": 1024 },
     "src/app/api/research/context-check/route.ts": { "maxDuration": 60, "memory": 1024 }
   },
-  "regions": ["sin1", "fra1", "iad1"],
-  "crons": []
+  "regions": ["sin1", "fra1", "iad1"]
 }
