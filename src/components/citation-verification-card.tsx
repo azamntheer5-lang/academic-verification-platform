@@ -18,6 +18,7 @@ import {
   ListChecks,
   Award,
   Sparkles,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
 import type {
@@ -560,7 +561,14 @@ function CleanerTab({ style }: { style: FormatStyle }) {
 // ── Tab 3: Reference Generator (for research with no references) ─────────────
 interface GeneratedRef {
   topic: string
-  reference: { title: string; author: string; year: string; publisher: string; fullApa: string }
+  title: string
+  authors: string[]
+  year: string
+  publisher: string
+  isbn: string | null
+  doi: string | null
+  url: string
+  verifiedBy: 'google_books' | 'open_library' | 'crossref'
   page: number | null
   pageConfirmed: boolean
   formatted: string
@@ -683,11 +691,11 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
                       suspiciousCount: 0,
                       items: result.references.map((r) => ({
                         quote: r.topic,
-                        author: r.reference.author,
+                        author: r.authors.join(', '),
                         status: 'ALTERNATIVE_FOUND',
-                        verifiedTitle: r.reference.title,
-                        verifiedAuthor: r.reference.author,
-                        verifiedPage: null,
+                        verifiedTitle: r.title,
+                        verifiedAuthor: r.authors.join(', '),
+                        verifiedPage: r.page ? String(r.page) : null,
                         fullApa: r.formatted,
                       })),
                     })
@@ -699,14 +707,17 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
               </div>
               <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
                 {result.references.map((ref, i) => (
-                  <div key={i} className="rounded-xl border border-violet-200 bg-white p-3">
+                  <div key={i} className="rounded-xl border border-emerald-200 bg-white p-3">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <Badge className="text-xs bg-violet-100 text-violet-800 border-violet-200 shrink-0">
                         {i + 1}. {ref.topic}
                       </Badge>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Badge className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200 gap-1" title="موثّق هيكلياً في مصدر رسمي">
+                          <ShieldCheck className="h-3 w-3" /> {ref.verifiedBy === 'google_books' ? 'Google Books' : ref.verifiedBy === 'open_library' ? 'Open Library' : 'Crossref DOI'}
+                        </Badge>
                         {ref.pageConfirmed && ref.page && (
-                          <Badge className="text-xs bg-emerald-100 text-emerald-800 border-emerald-200 gap-1">
+                          <Badge className="text-xs bg-teal-100 text-teal-800 border-teal-200 gap-1">
                             <CheckCircle className="h-3 w-3" /> صـ {ref.page}
                           </Badge>
                         )}
@@ -719,17 +730,24 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
                         </button>
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-slate-900">{ref.reference.title}</p>
+                    <p className="text-sm font-medium text-slate-900">{ref.title}</p>
                     <p className="text-xs text-slate-600">
-                      {ref.reference.author} · {ref.reference.year}
-                      {ref.reference.publisher ? ` · ${ref.reference.publisher}` : ''}
+                      {ref.authors.join('، ') || 'بدون مؤلف'} · {ref.year}
+                      {ref.publisher ? ` · ${ref.publisher}` : ''}
+                      {ref.isbn ? ` · ISBN: ${ref.isbn}` : ''}
+                      {ref.doi ? ` · DOI: ${ref.doi}` : ''}
                     </p>
+                    {ref.url && (
+                      <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 hover:underline mt-0.5 inline-block">
+                        🔗 المصدر الرسمي
+                      </a>
+                    )}
                     {ref.relevanceNote && (
                       <p className="text-xs text-violet-700 mt-1 italic">💡 {ref.relevanceNote}</p>
                     )}
                     {!ref.pageConfirmed && (
                       <p className="text-[10px] text-amber-600 mt-1">
-                        ⚠️ لم يُعثر على رقم صفحة مؤكد — راجع فهرس الكتاب يدوياً
+                        ⚠️ المرجع حقيقي وموثّق، لكن لم يُعثر على رقم صفحة — راجع فهرس الكتاب يدوياً
                       </p>
                     )}
                     <div className="mt-2 bg-slate-50 rounded px-2 py-1.5 text-xs font-mono text-slate-700 border border-slate-200" dir="ltr">
