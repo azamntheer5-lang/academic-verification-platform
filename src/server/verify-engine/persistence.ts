@@ -2,9 +2,10 @@
 // Every verification (single or batch) is written to the database so the
 // researcher can review their historical audits via /api/my-library.
 //
-// We use a singleton anonymous user (created on first call) so the sandbox
-// works without authentication. In production this would be replaced by the
-// authenticated session user.
+// On Vercel serverless, SQLite (file-based) doesn't work because the
+// filesystem is ephemeral. We detect this and gracefully degrade —
+// verifications still work, they just aren't persisted. On a real Postgres
+// DATABASE_URL (Neon/Supabase), persistence is fully active.
 
 import { db } from '@/lib/db'
 
@@ -12,12 +13,26 @@ const ANON_EMAIL = 'researcher@local.academy'
 const ANON_NAME = 'الباحث المحلي'
 const DEFAULT_RESEARCH_TITLE = 'بحث غير معنون'
 
-async function ensureUser(): Promise<{ id: string; researchId: string }> {
+// Check if the database is available (Vercel SQLite = not available)
+let dbAvailable: boolean | null = null
+async function isDbAvailable(): Promise<boolean> {
+  if (dbAvailable !== null) return dbAvailable
+  try {
+    await db.user.count({ take: 1 })
+    dbAvailable = true
+    return true
+  } catch {
+    dbAvailable = false
+    return false
+  }
+}
+
+async function ensureUser(): Promise<{ id: string; researchId: string } | null> {
+  if (!(await isDbAvailable())) return null
   let user = await db.user.findUnique({ where: { email: ANON_EMAIL } })
   if (!user) {
     user = await db.user.create({ data: { email: ANON_EMAIL, name: ANON_NAME } })
   }
-  // Get or create a default research for this user
   let research = await db.research.findFirst({
     where: { userId: user.id, title: DEFAULT_RESEARCH_TITLE },
   })
@@ -34,7 +49,7 @@ export interface AuditRecord {
   status: string
 }
 
-// Persist a single verification result.
+// Persist a single verification result. Gracefully no-ops on Vercel (SQLite).
 export async function persistVerification(opts: {
   author: string
   quote: string
@@ -48,8 +63,10 @@ export async function persistVerification(opts: {
     publisher: string
     fullApa: string
   } | null
-}): Promise<AuditRecord> {
-  const { researchId } = await ensureUser()
+}): Promise<AuditRecord | null> {
+  const ctx = await ensureUser()
+  if (!ctx) return null // DB not available (Vercel) — skip persistence
+  const { researchId } = ctx
   const { author, quote, expectedPage, status, printedPage, alternative } = opts
 
   const citation = await db.researchCitation.create({
@@ -80,7 +97,7 @@ export async function persistVerification(opts: {
   return { citationId: citation.id, status }
 }
 
-// Persist a batch of clean-bibliography items in one transaction.
+// Persist a batch of clean-bibliography items.
 export async function persistBatch(opts: {
   items: {
     raw: string
@@ -90,8 +107,10 @@ export async function persistBatch(opts: {
     status: string
     recommendation: { title: string; author: string; year: string; publisher: string; fullApa: string } | null
   }[]
-}): Promise<{ saved: number }> {
-  const { researchId } = await ensureUser()
+}): Promise<{ saved: number } | null> {
+  const ctx = await ensureUser()
+  if (!ctx) return null // DB not available (Vercel)
+  const { researchId } = ctx
   let saved = 0
   for (const item of opts.items) {
     const status =
@@ -126,7 +145,7 @@ export async function persistBatch(opts: {
   return { saved }
 }
 
-// Fetch the user's library (all verified citations, newest first).
+// Fetch the user's library. Returns empty array on Vercel (no SQLite).
 export async function fetchMyLibrary(): Promise<{
   citations: {
     id: string
@@ -144,7 +163,9 @@ export async function fetchMyLibrary(): Promise<{
     verification: { foundInFile: boolean; foundInLibrary: boolean; isHallucination: boolean } | null
   }[]
 }> {
-  const { researchId } = await ensureUser()
+  const ctx = await ensureUser()
+  if (!ctx) return { citations: [] } // DB not available
+  const { researchId } = ctx
   const citations = await db.researchCitation.findMany({
     where: { researchId },
     orderBy: { createdAt: 'desc' },
