@@ -4,6 +4,79 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 
+// ── File extraction (shared) ─────────────────────────────────────────────────
+// Tries the doc-extract mini-service first (local dev, port 3004), then falls
+// back to direct extraction using unpdf (PDF) or mammoth (DOCX) for Vercel.
+
+export interface ExtractedPage {
+  number: number
+  text: string
+}
+
+export async function extractFilePages(file: File, kind: 'pdf' | 'docx'): Promise<ExtractedPage[]> {
+  // Strategy 1: mini-service (local dev)
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const res = await fetch('http://localhost:3004/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': kind },
+      body: bytes,
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { ok: boolean; pages?: ExtractedPage[] }
+      if (data.ok && data.pages && data.pages.length > 0) return data.pages
+    }
+  } catch {
+    // mini-service not available — fall through
+  }
+
+  // Strategy 2: direct extraction (Vercel)
+  if (kind === 'pdf') {
+    return extractPdfWithUnpdf(file)
+  }
+  return extractDocxWithMammoth(file)
+}
+
+async function extractPdfWithUnpdf(file: File): Promise<ExtractedPage[]> {
+  const { getDocumentProxy } = await import('unpdf')
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const pdf = await getDocumentProxy(bytes)
+  const pages: ExtractedPage[] = []
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    const text = content.items
+      .map((item: { str?: string; hasEOL?: boolean }) =>
+        item.hasEOL ? (item.str || '') + '\n' : item.str || '',
+      )
+      .join(' ')
+      .replace(/ \n/g, '\n')
+      .slice(0, 12000)
+    pages.push({ number: i, text })
+  }
+  return pages
+}
+
+async function extractDocxWithMammoth(file: File): Promise<ExtractedPage[]> {
+  const mammoth = (await import('mammoth')).default
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const result = await mammoth.extractRawText({ buffer })
+  const fullText = result?.value || ''
+  // Split on form-feed or multiple newlines for pseudo-pages
+  const chunks = fullText.includes('\f')
+    ? fullText.split('\f')
+    : fullText.split(/\n{3,}/)
+  const pages = chunks
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0)
+    .map((t, i) => ({ number: i + 1, text: t.slice(0, 12000) }))
+  if (pages.length === 0 && fullText.trim()) {
+    pages.push({ number: 1, text: fullText.trim().slice(0, 12000) })
+  }
+  return pages
+}
+
 // ── Logging ──────────────────────────────────────────────────────────────────
 // Wrap every silent catch with this so errors surface in the server log
 // instead of vanishing. In production these go to stderr/stdout which the

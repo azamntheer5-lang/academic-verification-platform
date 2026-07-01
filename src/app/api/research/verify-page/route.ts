@@ -16,11 +16,6 @@ import { semanticScanPages } from '@/lib/semantic'
 // route using src/lib/verify.ts. If the quote is NOT found in the file, we
 // automatically run the autonomous web fallback (findCitationOnWeb).
 
-interface ExtractedPage {
-  number: number
-  text: string
-}
-
 export async function POST(req: NextRequest) {
   try {
     const form = await req.formData().catch(() => null)
@@ -55,47 +50,23 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const bytes = new Uint8Array(await file.arrayBuffer())
-
-    // Call the doc-extract mini-service (port 3004). The mini-service runs as
-    // an independent bun process, so we hit it directly on localhost — the
-    // gateway XTransformPort trick is only needed for browser-originated
-    // requests, not for server-to-server fetches.
-    const extractRes = await fetch('http://localhost:3004/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': kind },
-      body: bytes,
-    })
-
-    if (!extractRes.ok) {
-      let errMsg = 'فشل استخراج النص من الخدمة.'
-      try {
-        const ej = await extractRes.json()
-        errMsg = ej?.error || errMsg
-      } catch {
-        /* ignore */
-      }
-      return NextResponse.json({ ok: false, error: errMsg }, { status: 502 })
-    }
-
-    const extractJson = (await extractRes.json()) as {
-      ok: boolean
-      pages?: ExtractedPage[]
-      total?: number
-      error?: string
-    }
-
-    if (!extractJson.ok || !extractJson.pages || extractJson.pages.length === 0) {
+    // Extract pages — uses mini-service (local dev) or unpdf (Vercel) automatically
+    const { extractFilePages } = await import('@/server/verify-engine/server-utils')
+    let pages: { number: number; text: string }[]
+    try {
+      pages = await extractFilePages(file, kind)
+    } catch {
       return NextResponse.json(
-        {
-          ok: false,
-          error: extractJson.error || 'تعذّر استخراج أي نص من الملف. قد يكون الملف ممسوحاً ضوئياً (صور) أو محمياً.',
-        },
+        { ok: false, error: 'تعذّر استخراج أي نص من الملف. قد يكون الملف ممسوحاً ضوئياً (صور) أو محمياً.' },
         { status: 400 },
       )
     }
-
-    const pages = extractJson.pages
+    if (pages.length === 0) {
+      return NextResponse.json(
+        { ok: false, error: 'الملف لا يحتوي على نص قابل للاستخراج.' },
+        { status: 400 },
+      )
+    }
     const semanticMode = String(form.get('semantic') || '') === 'true'
     const result: LibPageVerifyResult = verifyPageNumber({ quote, claimedPage, pages })
 

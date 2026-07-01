@@ -11,11 +11,6 @@ import ZAI from 'z-ai-web-dev-sdk'
 // ask the LLM whether the researcher's usage is faithful to the author's
 // intent or whether the quote was twisted / taken from a negation context.
 
-interface ExtractedPage {
-  number: number
-  text: string
-}
-
 interface ContextCheckResult {
   faithful: boolean
   severity: 'ok' | 'warning' | 'critical'
@@ -64,18 +59,14 @@ export async function POST(req: NextRequest) {
 
     // Extract pages from the file via the doc-extract mini-service (port 3004)
     const lower = file.name.toLowerCase()
-    const kind = lower.endsWith('.docx') ? 'docx' : 'pdf'
-    const bytes = new Uint8Array(await file.arrayBuffer())
-    const extractRes = await fetch('http://localhost:3004/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': kind },
-      body: bytes,
-    })
-    if (!extractRes.ok) {
+    const kind = lower.endsWith('.docx') ? 'docx' : 'pdf' as const
+    const { extractFilePages } = await import('@/server/verify-engine/server-utils')
+    let pages: { number: number; text: string }[]
+    try {
+      pages = await extractFilePages(file, kind)
+    } catch {
       return NextResponse.json({ ok: false, error: 'تعذّر استخراج نص الملف.' }, { status: 502 })
     }
-    const extractJson = (await extractRes.json()) as { ok: boolean; pages?: ExtractedPage[] }
-    const pages = extractJson.pages || []
     if (pages.length === 0) {
       return NextResponse.json({ ok: false, error: 'الملف لا يحتوي على نص.' }, { status: 400 })
     }

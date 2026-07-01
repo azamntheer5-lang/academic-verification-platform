@@ -192,15 +192,50 @@ function extractPrintedPage(text: string): string | null {
 }
 
 export async function extractPagesFromPdf(file: File): Promise<ExtractedPage[]> {
+  // Strategy 1: try the doc-extract mini-service (local dev, port 3004)
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const res = await fetch('http://localhost:3004/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': 'pdf' },
+      body: bytes,
+      signal: AbortSignal.timeout(8000),
+    })
+    if (res.ok) {
+      const data = (await res.json()) as { ok: boolean; pages?: ExtractedPage[] }
+      if (data.ok && data.pages && data.pages.length > 0) {
+        return data.pages
+      }
+    }
+  } catch {
+    // mini-service not available (e.g. on Vercel) — fall through to Strategy 2
+  }
+
+  // Strategy 2: extract directly using unpdf (works on Vercel serverless)
+  return extractPagesWithUnpdf(file)
+}
+
+// Direct PDF extraction using unpdf — designed for serverless/edge environments.
+// No external worker needed; unpdf configures pdfjs-dist internally.
+async function extractPagesWithUnpdf(file: File): Promise<ExtractedPage[]> {
+  const { getDocumentProxy } = await import('unpdf')
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const res = await fetch('http://localhost:3004/extract', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': 'pdf' },
-    body: bytes,
-  })
-  if (!res.ok) throw new Error('تعذّر استخراج نص الملف من الخدمة.')
-  const data = (await res.json()) as { ok: boolean; pages?: ExtractedPage[] }
-  return data.pages || []
+  const pdf = await getDocumentProxy(bytes)
+  const pages: ExtractedPage[] = []
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    // Reconstruct text from text items, inserting newlines where appropriate
+    const text = content.items
+      .map((item: { str?: string; hasEOL?: boolean }) => {
+        return item.hasEOL ? (item.str || '') + '\n' : item.str || ''
+      })
+      .join(' ')
+      .replace(/ \n/g, '\n')
+      .slice(0, 12000) // cap per-page size
+    pages.push({ number: i, text })
+  }
+  return pages
 }
 
 // ── Stage 1a: exact string match (normalized) ────────────────────────────────

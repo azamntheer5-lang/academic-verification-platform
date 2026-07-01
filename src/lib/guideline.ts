@@ -88,20 +88,14 @@ export async function formatWithGuideline(
   }
 }
 
-// Wrapper that calls the doc-extract mini-service (port 3004) so we don't
-// import pdf-parse into the Next bundle.
+// Extracts text from a guideline PDF/DOCX. Uses the mini-service (local dev)
+// or falls back to unpdf/mammoth (Vercel) via the shared extractFilePages.
 export async function extractGuidelineFromUpload(file: File): Promise<{ text: string; name: string }> {
   const lower = file.name.toLowerCase()
-  const kind = lower.endsWith('.docx') ? 'docx' : 'pdf'
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  const res = await fetch('http://localhost:3004/extract', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/octet-stream', 'X-Kind': kind },
-    body: bytes,
-  })
-  if (!res.ok) throw new Error('تعذّر استخراج نص الدليل.')
-  const data = (await res.json()) as { ok: boolean; pages?: { number: number; text: string }[] }
-  const text = (data.pages || []).map((p) => p.text).join('\n\n')
+  const kind = (lower.endsWith('.docx') ? 'docx' : 'pdf') as 'pdf' | 'docx'
+  const { extractFilePages } = await import('@/server/verify-engine/server-utils')
+  const pages = await extractFilePages(file, kind)
+  const text = pages.map((p) => p.text).join('\n\n')
   return { text, name: file.name.replace(/\.(pdf|docx)$/i, '') }
 }
 
