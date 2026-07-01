@@ -1,0 +1,7 @@
+# Tell Vercel to ignore the Python backend reference implementation —
+# the live engine runs as TypeScript in src/server/verify-engine/.
+backend/
+mini-services/
+scripts/
+*.md
+.gitignore

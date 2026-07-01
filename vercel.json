@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "version": 2,
   "framework": "nextjs",
   "buildCommand": "bun run build",
   "installCommand": "bun install",
@@ -15,12 +14,6 @@
       ]
     },
     {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate" }
-      ]
-    },
-    {
       "source": "/_next/static/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
@@ -28,15 +21,13 @@
     }
   ],
   "functions": {
-    "src/app/api/verify-engine/route.ts": { "maxDuration": 60, "memory": 1024 },
-    "src/app/api/clean-bibliography/route.ts": { "maxDuration": 120, "memory": 1024 },
-    "src/app/api/generate-references/route.ts": { "maxDuration": 120, "memory": 1024 },
-    "src/app/api/my-library/route.ts": { "maxDuration": 30, "memory": 512 },
-    "src/app/api/research/extract/route.ts": { "maxDuration": 60, "memory": 1024 },
-    "src/app/api/research/verify/route.ts": { "maxDuration": 60, "memory": 1024 },
-    "src/app/api/research/verify-page/route.ts": { "maxDuration": 60, "memory": 1024 },
-    "src/app/api/research/hallucination-scan/route.ts": { "maxDuration": 120, "memory": 1024 },
-    "src/app/api/research/context-check/route.ts": { "maxDuration": 60, "memory": 1024 }
-  },
-  "regions": ["sin1", "fra1", "iad1"]
+    "src/app/api/verify-engine/route.ts": { "maxDuration": 60 },
+    "src/app/api/clean-bibliography/route.ts": { "maxDuration": 120 },
+    "src/app/api/generate-references/route.ts": { "maxDuration": 120 },
+    "src/app/api/research/extract/route.ts": { "maxDuration": 60 },
+    "src/app/api/research/verify/route.ts": { "maxDuration": 60 },
+    "src/app/api/research/verify-page/route.ts": { "maxDuration": 60 },
+    "src/app/api/research/hallucination-scan/route.ts": { "maxDuration": 120 },
+    "src/app/api/research/context-check/route.ts": { "maxDuration": 60 }
+  }
 }
