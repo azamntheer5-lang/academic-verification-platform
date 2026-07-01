@@ -1,33 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "buildCommand": "bun run build",
-  "installCommand": "bun install",
-  "outputDirectory": ".next",
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-      ]
-    },
-    {
-      "source": "/_next/static/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    }
-  ],
-  "functions": {
-    "src/app/api/verify-engine/route.ts": { "maxDuration": 60 },
-    "src/app/api/clean-bibliography/route.ts": { "maxDuration": 120 },
-    "src/app/api/generate-references/route.ts": { "maxDuration": 120 },
-    "src/app/api/research/extract/route.ts": { "maxDuration": 60 },
-    "src/app/api/research/verify/route.ts": { "maxDuration": 60 },
-    "src/app/api/research/verify-page/route.ts": { "maxDuration": 60 },
-    "src/app/api/research/hallucination-scan/route.ts": { "maxDuration": 120 },
-    "src/app/api/research/context-check/route.ts": { "maxDuration": 60 }
-  }
+  "framework": "nextjs"
 }
