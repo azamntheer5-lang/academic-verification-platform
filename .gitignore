@@ -52,3 +52,35 @@ prompt
 server.log
 # Skills directory
 /skills/
+# ── Project-specific ignores ──
+# Screenshots (not needed in repo)
+*.png
+*.jpg
+*.jpeg
+*.webp
+
+# Database
+*.db
+*.db-journal
+db/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Uploads
+upload/
+
+# Logs
+*.log
+dev.log
+server.log
+doc-extract.log
+
+# Mini-service node_modules (already covered but explicit)
+mini-services/*/node_modules/
+
+# Sample PDFs (test artifacts)
+scripts/*.pdf
+scripts/*.docx
