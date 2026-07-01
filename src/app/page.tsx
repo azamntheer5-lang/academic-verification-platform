@@ -349,21 +349,21 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 320px, #fafaf9 320px, #fafaf9 100%)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #0F1419 0%, #1A2332 340px, #FAFAF9 340px, #FAFAF9 100%)' }}>
       {/* Header — luxury slim bar */}
-      <header className="border-b sticky top-0 z-20" style={{ borderColor: 'rgba(251,191,36,0.2)', background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
+      <header className="border-b sticky top-0 z-20" style={{ borderColor: 'rgba(212,175,55,0.25)', background: 'rgba(15,20,25,0.9)', backdropFilter: 'blur(16px)' }}>
         <div className="container mx-auto px-4 py-3.5 max-w-6xl">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2.5">
               <div
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ background: 'radial-gradient(circle, #fbbf24 0%, #f59e0b 100%)', boxShadow: '0 0 12px rgba(251,191,36,0.6)' }}
+                style={{ background: 'radial-gradient(circle, #FFD700 0%, #F5A623 100%)', boxShadow: '0 0 12px rgba(245,166,35,0.6)' }}
               />
               <h1 className="text-base font-bold tracking-tight" style={{ color: '#f1f5f9' }}>منصة التحقق الأكاديمي</h1>
               <span style={{ color: '#475569' }}>·</span>
               <span className="text-xs" style={{ color: '#94a3b8' }}>تحقيق ذكي بالمراجع</span>
             </div>
-            <span className="text-[11px] font-medium tracking-wide" style={{ color: '#fbbf24' }}>
+            <span className="text-[11px] font-medium tracking-wide" style={{ color: '#F5A623' }}>
               Google Books · Open Library · Crossref
             </span>
           </div>
@@ -520,7 +520,7 @@ export default function Home() {
             تحقق عبر Google Books · Open Library · Crossref
           </p>
           <p className="text-xs text-slate-500">
-            تطوير <span style={{ color: '#b45309', fontWeight: 700 }}>Azzam</span>
+            تطوير <span style={{ color: '#B8860B', fontWeight: 700 }}>Azzam</span>
           </p>
         </div>
       </footer>

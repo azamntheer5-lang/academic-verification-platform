@@ -107,15 +107,15 @@ export function CitationVerificationCard() {
       <div
         className="relative rounded-3xl overflow-hidden"
         style={{
-          background: 'linear-gradient(145deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.88) 50%, rgba(15,23,42,0.92) 100%)',
-          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(251,191,36,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
+          background: 'linear-gradient(145deg, #1A2332 0%, #0F1419 50%, #1A2332 100%)',
+          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,175,55,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
         }}
       >
         {/* Golden border accent */}
-        <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1.5px rgba(251,191,36,0.4)' }} />
+        <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1.5px rgba(212,175,55,0.5)' }} />
         {/* Glow orbs */}
-        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)' }} />
-        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)' }} />
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.25) 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(245,166,35,0.08) 0%, transparent 70%)' }} />
 
           <div className="relative p-7 sm:p-10">
             {/* Header — luxury wordmark with golden sun */}
@@ -124,24 +124,24 @@ export function CitationVerificationCard() {
                 <div
                   className="flex h-14 w-14 items-center justify-center rounded-full"
                   style={{
-                    background: 'radial-gradient(circle, #fbbf24 0%, #f59e0b 60%, #b45309 100%)',
-                    boxShadow: '0 0 30px rgba(251,191,36,0.5), inset 0 1px 2px rgba(255,255,255,0.4)',
+                    background: 'radial-gradient(circle, #FFD700 0%, #F5A623 60%, #B8860B 100%)',
+                    boxShadow: '0 0 30px rgba(245,166,35,0.5), inset 0 1px 2px rgba(255,255,255,0.4)',
                   }}
                 >
                   <BookOpen className="w-7 h-7 text-slate-900" />
                 </div>
               </div>
               <div className="inline-flex items-center gap-2.5 mb-3">
-                <div className="h-px w-8" style={{ background: 'linear-gradient(to left, transparent, #fbbf24)' }} />
-                <span className="text-[11px] font-bold tracking-[0.25em] uppercase" style={{ color: '#fbbf24' }}>
+                <div className="h-px w-8" style={{ background: 'linear-gradient(to left, transparent, #F5A623)' }} />
+                <span className="text-[11px] font-bold tracking-[0.25em] uppercase" style={{ color: '#F5A623' }}>
                   Academic Verification Platform
                 </span>
-                <div className="h-px w-8" style={{ background: 'linear-gradient(to right, transparent, #fbbf24)' }} />
+                <div className="h-px w-8" style={{ background: 'linear-gradient(to right, transparent, #F5A623)' }} />
               </div>
               <h3
                 className="font-bold text-3xl sm:text-4xl tracking-tight leading-tight mb-2"
                 style={{
-                  background: 'linear-gradient(135deg, #ffffff 0%, #fbbf24 50%, #ffffff 100%)',
+                  background: 'linear-gradient(135deg, #FFFFFF 0%, #F5A623 50%, #FFD700 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   backgroundClip: 'text',
@@ -152,16 +152,16 @@ export function CitationVerificationCard() {
               <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
                 محرك هجين + مطابقة دلالية + تطهير هلوسة + مهندس تنسيق جامعي
               </p>
-              <p className="text-xs mt-3 font-medium tracking-wide" style={{ color: '#fbbf24' }}>
+              <p className="text-xs mt-3 font-medium tracking-wide" style={{ color: '#F5A623' }}>
                 ✦ تطوير وإشراف: Azzam ✦
               </p>
             </div>
 
-            <div className="h-px mb-7" style={{ background: 'linear-gradient(to left, transparent, rgba(251,191,36,0.3), transparent)' }} />
+            <div className="h-px mb-7" style={{ background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.4), transparent)' }} />
 
             {/* ── Global style dropdown — luxury ── */}
             <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-              <label className="text-xs font-semibold tracking-wide" style={{ color: '#fbbf24' }}>
+              <label className="text-xs font-semibold tracking-wide" style={{ color: '#F5A623' }}>
                 ◆ دليل التنسيق
               </label>
               <select
@@ -169,14 +169,14 @@ export function CitationVerificationCard() {
                 onChange={(e) => setStyle(e.target.value as FormatStyle)}
                 className="px-4 py-2 rounded-lg text-sm font-medium outline-none cursor-pointer transition-all"
                 style={{
-                  background: 'rgba(15,23,42,0.6)',
+                  background: 'rgba(15,20,25,0.7)',
                   color: '#e2e8f0',
-                  border: '1px solid rgba(251,191,36,0.3)',
+                  border: '1px solid rgba(212,175,55,0.4)',
                   backdropFilter: 'blur(8px)',
                 }}
               >
                 {(Object.keys(STYLE_LABELS) as FormatStyle[]).map((s) => (
-                  <option key={s} value={s} style={{ background: '#0f172a', color: '#e2e8f0' }}>
+                  <option key={s} value={s} style={{ background: '#0F1419', color: '#e2e8f0' }}>
                     {STYLE_LABELS[s]}
                   </option>
                 ))}
@@ -187,8 +187,8 @@ export function CitationVerificationCard() {
             <div
               className="flex gap-1.5 mb-8 p-1.5 rounded-2xl"
               style={{
-                background: 'rgba(15,23,42,0.5)',
-                border: '1px solid rgba(251,191,36,0.15)',
+                background: 'rgba(15,20,25,0.6)',
+                border: '1px solid rgba(212,175,55,0.25)',
                 backdropFilter: 'blur(8px)',
               }}
             >
@@ -860,9 +860,9 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
       style={
         active
           ? {
-              background: 'linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.15) 100%)',
-              color: '#fbbf24',
-              boxShadow: '0 0 20px rgba(251,191,36,0.15), inset 0 0 0 1px rgba(251,191,36,0.3)',
+              background: 'linear-gradient(135deg, rgba(245,166,35,0.25) 0%, rgba(212,175,55,0.15) 100%)',
+              color: '#F5A623',
+              boxShadow: '0 0 20px rgba(212,175,55,0.25), inset 0 0 0 1px rgba(212,175,55,0.4)',
             }
           : {
               color: '#94a3b8',

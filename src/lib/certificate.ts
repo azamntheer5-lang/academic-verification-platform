@@ -123,7 +123,7 @@ function buildCertificateHtml(data: CertificateData): string {
     transform: translate(-50%, -50%) rotate(-28deg);
     font-size: 110px;
     font-weight: 900;
-    color: rgba(16, 185, 129, 0.06);
+    color: rgba(245, 166, 35, 0.07);
     pointer-events: none;
     z-index: 0;
     white-space: nowrap;
@@ -133,7 +133,7 @@ function buildCertificateHtml(data: CertificateData): string {
   /* header */
   .header {
     text-align: center;
-    border: 3px double #0f172a;
+    border: 3px double #1A2332;
     border-bottom: none;
     padding: 22px 16px 18px;
     background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
@@ -141,17 +141,17 @@ function buildCertificateHtml(data: CertificateData): string {
   .header .seal {
     display: inline-block;
     width: 56px; height: 56px;
-    border: 2.5px solid #ca8a04;
+    border: 2.5px solid #D4AF37;
     border-radius: 50%;
-    color: #ca8a04;
+    color: #D4AF37;
     font-size: 28px;
     line-height: 52px;
     margin-bottom: 8px;
-    background: #fffbeb;
+    background: #1A2332;
   }
   .header h1 {
     font-size: 24px;
-    color: #0f172a;
+    color: #1A2332;
     letter-spacing: 0.5px;
     margin-bottom: 4px;
   }
@@ -161,7 +161,7 @@ function buildCertificateHtml(data: CertificateData): string {
   }
   .header .gold-line {
     height: 2px;
-    background: #ca8a04;
+    background: #D4AF37;
     margin: 12px auto 0;
     width: 60%;
   }
@@ -171,7 +171,7 @@ function buildCertificateHtml(data: CertificateData): string {
     margin: 22px 0 6px;
     font-size: 18px;
     font-weight: 700;
-    color: #0f172a;
+    color: #1A2332;
   }
   .doc-meta {
     text-align: center;
@@ -197,7 +197,7 @@ function buildCertificateHtml(data: CertificateData): string {
   }
   .stat .v { font-size: 26px; font-weight: 800; line-height: 1; }
   .stat .l { font-size: 11px; color: #475569; margin-top: 4px; }
-  .stat.total .v { color: #0f172a; }
+  .stat.total .v { color: #1A2332; }
   .stat.auth .v { color: #059669; }
   .stat.susp .v { color: #dc2626; }
   /* table */
@@ -208,12 +208,12 @@ function buildCertificateHtml(data: CertificateData): string {
     margin-top: 8px;
   }
   thead th {
-    background: #0f172a;
+    background: #1A2332;
     color: #fff;
     padding: 9px 6px;
     font-weight: 700;
     text-align: center;
-    border: 1px solid #0f172a;
+    border: 1px solid #1A2332;
   }
   tbody td {
     padding: 8px 6px;
@@ -225,12 +225,12 @@ function buildCertificateHtml(data: CertificateData): string {
   td.status { text-align: center; font-weight: 700; white-space: nowrap; }
   td.status.ok { color: #059669; background: #ecfdf5; }
   td.status.bad { color: #dc2626; background: #fef2f2; }
-  td.status.warn { color: #d97706; background: #fffbeb; }
+  td.status.warn { color: #d97706; background: #1A2332; }
   /* footer */
   .footer {
     margin-top: 26px;
     padding-top: 14px;
-    border-top: 2px solid #ca8a04;
+    border-top: 2px solid #D4AF37;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -247,11 +247,11 @@ function buildCertificateHtml(data: CertificateData): string {
   }
   .footer .qr {
     width: 54px; height: 54px;
-    border: 1.5px solid #0f172a;
+    border: 1.5px solid #1A2332;
     border-radius: 6px;
     display: flex; align-items: center; justify-content: center;
     font-size: 9px; text-align: center;
-    color: #0f172a;
+    color: #1A2332;
     background: #fff;
   }
   @media print {
@@ -260,7 +260,7 @@ function buildCertificateHtml(data: CertificateData): string {
   }
   .print-btn {
     position: fixed; top: 10px; left: 10px;
-    background: #0f172a; color: #fff; border: none;
+    background: #1A2332; color: #fff; border: none;
     padding: 10px 18px; border-radius: 8px; font-size: 14px;
     cursor: pointer; z-index: 100;
     font-family: inherit;
@@ -306,7 +306,7 @@ function buildCertificateHtml(data: CertificateData): string {
       <div class="signature">
         <div class="line"></div>
         نظام التحقق الهجين · توقيع آلي معتمد<br>
-        <span style="color:#ca8a04;font-weight:700">تطوير وإشراف: Azzam</span>
+        <span style="color:#D4AF37;font-weight:700">تطوير وإشراف: Azzam</span>
       </div>
       <div style="text-align:left">
         منصة التحقق الأكاديمي الشاملة<br>
