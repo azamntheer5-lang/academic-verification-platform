@@ -103,49 +103,95 @@ export function CitationVerificationCard() {
 
   return (
     <div className="max-w-3xl mx-auto" dir="rtl">
-      {/* ── Premium minimal card (no ornamental frames) ── */}
-      <div className="rounded-2xl bg-white shadow-[0_4px_24px_-8px_rgba(15,23,42,0.12)] border border-slate-200/70 overflow-hidden">
-          <div className="p-6 sm:p-8">
-            {/* Header — clean wordmark, no boxed icon */}
-            <div className="text-center mb-7">
-              <div className="inline-flex items-center gap-2.5 mb-3">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                <span className="text-[11px] font-bold tracking-[0.2em] text-emerald-700 uppercase">Academic Verification Platform</span>
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+      {/* ── Luxury glassmorphism card with golden frame ── */}
+      <div
+        className="relative rounded-3xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(145deg, rgba(15,23,42,0.92) 0%, rgba(30,41,59,0.88) 50%, rgba(15,23,42,0.92) 100%)',
+          boxShadow: '0 25px 60px -15px rgba(0,0,0,0.7), 0 0 0 1px rgba(251,191,36,0.3), inset 0 1px 0 rgba(255,255,255,0.06)',
+        }}
+      >
+        {/* Golden border accent */}
+        <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ boxShadow: 'inset 0 0 0 1.5px rgba(251,191,36,0.4)' }} />
+        {/* Glow orbs */}
+        <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)' }} />
+        <div className="absolute -bottom-20 -left-20 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%)' }} />
+
+          <div className="relative p-7 sm:p-10">
+            {/* Header — luxury wordmark with golden sun */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center gap-3 mb-4">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-full"
+                  style={{
+                    background: 'radial-gradient(circle, #fbbf24 0%, #f59e0b 60%, #b45309 100%)',
+                    boxShadow: '0 0 30px rgba(251,191,36,0.5), inset 0 1px 2px rgba(255,255,255,0.4)',
+                  }}
+                >
+                  <BookOpen className="w-7 h-7 text-slate-900" />
+                </div>
               </div>
-              <h3 className="font-bold text-2xl sm:text-[28px] text-slate-900 tracking-tight leading-tight">
+              <div className="inline-flex items-center gap-2.5 mb-3">
+                <div className="h-px w-8" style={{ background: 'linear-gradient(to left, transparent, #fbbf24)' }} />
+                <span className="text-[11px] font-bold tracking-[0.25em] uppercase" style={{ color: '#fbbf24' }}>
+                  Academic Verification Platform
+                </span>
+                <div className="h-px w-8" style={{ background: 'linear-gradient(to right, transparent, #fbbf24)' }} />
+              </div>
+              <h3
+                className="font-bold text-3xl sm:text-4xl tracking-tight leading-tight mb-2"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #fbbf24 50%, #ffffff 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
                 منصة التحقق الأكاديمي الشاملة
               </h3>
-              <p className="text-sm text-slate-500 mt-2 max-w-md mx-auto leading-relaxed">
+              <p className="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
                 محرك هجين + مطابقة دلالية + تطهير هلوسة + مهندس تنسيق جامعي
               </p>
-              <p className="text-xs text-slate-400 mt-3 font-medium">
-                تطوير وإشراف <span className="text-slate-700 font-bold">Azzam</span>
+              <p className="text-xs mt-3 font-medium tracking-wide" style={{ color: '#fbbf24' }}>
+                ✦ تطوير وإشراف: Azzam ✦
               </p>
             </div>
 
-            <div className="h-px bg-gradient-to-l from-transparent via-slate-200 to-transparent mb-6" />
+            <div className="h-px mb-7" style={{ background: 'linear-gradient(to left, transparent, rgba(251,191,36,0.3), transparent)' }} />
 
-            {/* ── Global style dropdown — minimal ── */}
+            {/* ── Global style dropdown — luxury ── */}
             <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
-              <label className="text-xs font-semibold text-slate-500 tracking-wide">
-                دليل التنسيق
+              <label className="text-xs font-semibold tracking-wide" style={{ color: '#fbbf24' }}>
+                ◆ دليل التنسيق
               </label>
               <select
                 value={style}
                 onChange={(e) => setStyle(e.target.value as FormatStyle)}
-                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 outline-none cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-lg text-sm font-medium outline-none cursor-pointer transition-all"
+                style={{
+                  background: 'rgba(15,23,42,0.6)',
+                  color: '#e2e8f0',
+                  border: '1px solid rgba(251,191,36,0.3)',
+                  backdropFilter: 'blur(8px)',
+                }}
               >
                 {(Object.keys(STYLE_LABELS) as FormatStyle[]).map((s) => (
-                  <option key={s} value={s}>
+                  <option key={s} value={s} style={{ background: '#0f172a', color: '#e2e8f0' }}>
                     {STYLE_LABELS[s]}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* ── Tabs — pill style, generous spacing ── */}
-            <div className="flex gap-1.5 mb-7 p-1 bg-slate-100/70 rounded-xl">
+            {/* ── Tabs — luxury pill with golden glow ── */}
+            <div
+              className="flex gap-1.5 mb-8 p-1.5 rounded-2xl"
+              style={{
+                background: 'rgba(15,23,42,0.5)',
+                border: '1px solid rgba(251,191,36,0.15)',
+                backdropFilter: 'blur(8px)',
+              }}
+            >
               <TabButton
                 active={tab === 'hybrid'}
                 onClick={() => setTab('hybrid')}
@@ -345,7 +391,7 @@ function HybridTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleProcess}
         disabled={isLoading}
-        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
+        className="w-full disabled:opacity-50 text-slate-900 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-base luxury-gold-btn"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle className="w-6 h-6" />}
         {isLoading ? 'يتم الآن فحص الملف والمكتبات العالمية...' : 'ابدأ التدقيق والتحقق الشامل'}
@@ -489,7 +535,7 @@ function CleanerTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleClean}
         disabled={isLoading || !raw.trim()}
-        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
+        className="w-full disabled:opacity-50 text-slate-900 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-base luxury-gold-btn"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <ListChecks className="w-6 h-6" />}
         {isLoading ? 'جارٍ فحص كل مرجع عبر المكتبات الثلاث...' : 'ابدأ تطهير وتنظيف المراجع'}
@@ -642,7 +688,7 @@ function GeneratorTab({ style }: { style: FormatStyle }) {
       <button
         onClick={handleGenerate}
         disabled={isLoading || researchText.trim().length < 50}
-        className="w-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-base"
+        className="w-full disabled:opacity-50 text-slate-900 font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-base luxury-gold-btn"
       >
         {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Sparkles className="w-6 h-6" />}
         {isLoading ? 'يحلّل المحتوى ويبحث في المكتبات العالمية...' : 'ولّد مراجع حقيقية لبحثي'}
@@ -810,11 +856,19 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg font-semibold text-[13px] transition-all ${
+      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl font-semibold text-[13px] transition-all"
+      style={
         active
-          ? 'bg-white text-emerald-700 shadow-sm'
-          : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
-      }`}
+          ? {
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.2) 0%, rgba(245,158,11,0.15) 100%)',
+              color: '#fbbf24',
+              boxShadow: '0 0 20px rgba(251,191,36,0.15), inset 0 0 0 1px rgba(251,191,36,0.3)',
+            }
+          : {
+              color: '#94a3b8',
+              background: 'transparent',
+            }
+      }
     >
       {icon}
       {label}

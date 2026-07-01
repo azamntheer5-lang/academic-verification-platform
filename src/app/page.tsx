@@ -349,18 +349,21 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100/50">
-      {/* Header */}
-      <header className="border-b border-slate-200/70 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 320px, #fafaf9 320px, #fafaf9 100%)' }}>
+      {/* Header — luxury slim bar */}
+      <header className="border-b sticky top-0 z-20" style={{ borderColor: 'rgba(251,191,36,0.2)', background: 'rgba(2,6,23,0.85)', backdropFilter: 'blur(16px)' }}>
         <div className="container mx-auto px-4 py-3.5 max-w-6xl">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2.5">
-              <div className="h-2 w-2 rounded-full bg-emerald-600" />
-              <h1 className="text-base font-bold text-slate-900 tracking-tight">منصة التحقق الأكاديمي</h1>
-              <span className="text-slate-300">·</span>
-              <span className="text-xs text-slate-500">تحقيق ذكي بالمراجع</span>
+              <div
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ background: 'radial-gradient(circle, #fbbf24 0%, #f59e0b 100%)', boxShadow: '0 0 12px rgba(251,191,36,0.6)' }}
+              />
+              <h1 className="text-base font-bold tracking-tight" style={{ color: '#f1f5f9' }}>منصة التحقق الأكاديمي</h1>
+              <span style={{ color: '#475569' }}>·</span>
+              <span className="text-xs" style={{ color: '#94a3b8' }}>تحقيق ذكي بالمراجع</span>
             </div>
-            <span className="text-[11px] text-slate-400 font-medium tracking-wide">
+            <span className="text-[11px] font-medium tracking-wide" style={{ color: '#fbbf24' }}>
               Google Books · Open Library · Crossref
             </span>
           </div>
@@ -511,13 +514,13 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="border-t border-slate-200/70 mt-auto">
+      <footer className="border-t mt-auto" style={{ borderColor: 'rgba(15,23,42,0.1)', background: '#fafaf9' }}>
         <div className="container mx-auto px-4 py-5 max-w-6xl flex items-center justify-between gap-3 flex-wrap">
           <p className="text-xs text-slate-400">
             تحقق عبر Google Books · Open Library · Crossref
           </p>
           <p className="text-xs text-slate-500">
-            تطوير <span className="text-slate-800 font-bold">Azzam</span>
+            تطوير <span style={{ color: '#b45309', fontWeight: 700 }}>Azzam</span>
           </p>
         </div>
       </footer>
